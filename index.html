@@ -1,0 +1,2496 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ビオトープカードゲーム デジタル体験版 - v0.5.8</title>
+<style>
+/* ============================================================
+   ビオトープカードゲーム デジタル体験版
+   ============================================================ */
+:root {
+  /* --- 環境色（カード画像から抽出） --- */
+  --c-forest:#12501B; --c-grass:#B4E5A2; --c-lake:#0000FF;
+  --c-river:#CAEEFC;  --c-marsh:#E59EDD; --c-stream:#E97132;
+
+  /* --- 基調色 --- */
+  --bg:#F4F4F1; --panel:#FFFFFF;
+  --side-me:#FBF2C9;   /* 色A：あなた（淡い黄） */
+  --side-op:#DDEEC9;   /* 色B：相手（淡い黄緑） */ --line:#D6D6D0; --ink:#1A1A1A; --ink-sub:#5C5C57;
+  --n-up:#1266C8; --n-down:#C62828;
+  --hand-ok:#E0A800; --hand-ng:#B4B4AE;
+  --bdg-lv:#FBF0CC;   /* 必要レベルバッジ：クリーム */
+  --bdg-eff:#EDEDEB;  /* 効果バッジ：明るいグレー */
+
+  /* --- ボタンの暖色 --- */
+  --btn-top:#F7C77A; --btn-bot:#EDA748; --btn-edge:#A96D1C; --btn-ink:#3A2408;
+
+  /* --- 写真の切り抜き位置（カード画像 500x750 基準・調整はここだけ） ---
+     動物：写真の縦25%〜68.5%・横6%〜94%。その中央を正方形で抜く。
+     環境：同じ写真帯の中央を 6:1 で抜く。 */
+  --ani-w:153.4%; --ani-x:-26.7%; --ani-y:-57.5%;
+  --env-w:113.6%; --env-x:-6.82%; --env-y:-440.9%;
+
+  /* --- 可変サイズ --- */
+  /* 環境タイル5枚（＝動物タイル10枚分）がちょうど1列に収まる幅。
+     903px以上で82px固定、663px以下で58px下限、その間は画面幅に追従。 */
+  --tile: clamp(58px, calc((100vw - 83px) / 10), 82px);
+  --gap: 5px;
+  --envw: calc(var(--tile) * 2 + var(--gap));   /* 環境タイル＝動物タイル2枚分 */
+  --hand: clamp(88px, 23vw, 124px);             /* 手札（大きめ） */
+  --fs:   clamp(11px, 2.6vw, 13px);
+  --fs-s: clamp(10px, 2.3vw, 12px);
+  --fs-head: clamp(13px, 3.2vw, 17px);
+}
+* { box-sizing:border-box; }
+[hidden] { display:none !important; }
+html,body { margin:0; padding:0; }
+.wrap { max-width:calc(var(--envw) * 5 + var(--gap) * 4 + 22px); margin:0 auto; }
+body {
+  background:var(--bg); color:var(--ink); font-size:var(--fs);
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif;
+  padding:10px; padding-bottom:calc(10px + env(safe-area-inset-bottom));
+  -webkit-text-size-adjust:100%;
+}
+button { font:inherit; color:inherit; border:none; background:none; padding:0; cursor:pointer; }
+
+/* ---------- 押せるボタン：暖色＋立体 ---------- */
+.btn {
+  background:linear-gradient(var(--btn-top), var(--btn-bot));
+  border:1.5px solid var(--btn-edge); border-radius:9px;
+  box-shadow:0 3px 0 var(--btn-edge), inset 0 1px 0 rgba(255,255,255,.75);
+  color:var(--btn-ink); font-weight:700; padding:7px 14px; font-size:var(--fs-s);
+  white-space:nowrap; transition:transform .05s, box-shadow .05s;
+}
+.btn:active { transform:translateY(3px); box-shadow:0 0 0 var(--btn-edge), inset 0 1px 0 rgba(255,255,255,.75); }
+.btn.lg { font-size:var(--fs); padding:9px 20px; }
+.btn.off { background:#CFCFCA; border-color:#9A9A94; box-shadow:0 3px 0 #9A9A94, inset 0 1px 0 rgba(255,255,255,.5);
+  color:#6E6E68; cursor:default; }
+/* 効果音の切り替えだけ寒色にして、ゲーム操作と区別する */
+.btn.cool { background:linear-gradient(#AFD8F5, #74B0E0); border-color:#2E6FA3;
+  box-shadow:0 3px 0 #2E6FA3, inset 0 1px 0 rgba(255,255,255,.7); color:#123A57; }
+.btn.cool:active { box-shadow:0 0 0 #2E6FA3, inset 0 1px 0 rgba(255,255,255,.7); }
+.btn.cool.quiet { background:linear-gradient(#DCE6ED, #BCCCD9); border-color:#7E96A8;
+  box-shadow:0 3px 0 #7E96A8, inset 0 1px 0 rgba(255,255,255,.6); color:#42535F; }
+.btn.cool.quiet:active { box-shadow:0 0 0 #7E96A8, inset 0 1px 0 rgba(255,255,255,.6); }
+.btn.off:active { transform:none; }
+
+/* ---------- 状態表示：押せない。枠だけ ---------- */
+.acts { display:flex; flex-wrap:wrap; align-items:center; gap:5px; }
+.acts-label { color:var(--ink-sub); font-size:var(--fs-s); white-space:nowrap; margin-right:2px; }
+.act { border:1px solid var(--ink); border-radius:3px; padding:3px 8px; background:transparent;
+  font-size:var(--fs-s); color:var(--ink); cursor:default; user-select:none; }
+.act.used { background:#DEDEDA; border-color:#A6A6A0; color:#84847E; }
+
+/* ---------- パネル ---------- */
+.zone.me { background:var(--side-me); }
+.zone.op { background:var(--side-op); }
+.zone { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 10px; margin-bottom:10px; }
+.zone-head { display:flex; flex-wrap:wrap; align-items:center; gap:5px 14px; font-size:var(--fs); }
+.zone-head .zone-name { font-size:var(--fs-head); }
+.zone-head .stat b { font-size:1.2em; }
+.zone-head .btn { margin-left:2px; }
+.zone-name { font-weight:700; }
+.stat { color:var(--ink-sub); white-space:nowrap; }
+.stat b { color:var(--ink); font-size:1.2em; font-weight:700; margin-left:3px; }
+.n-up { color:var(--n-up); font-weight:700; }
+.n-down { color:var(--n-down); font-weight:700; }
+.head-btns { display:flex; gap:6px; margin-left:auto; }
+
+/* ---------- タイル ---------- */
+.row { display:flex; flex-wrap:wrap; gap:var(--gap); }
+.tile { position:relative; border-radius:8px; padding:4px; display:block; }
+@keyframes tile-env-in {
+  0%   { transform:translateY(-15px) rotate(-7deg); opacity:0; }
+  35%  { transform:translateY(0) rotate(5deg); opacity:1; }
+  55%  { transform:rotate(-4deg); }
+  72%  { transform:rotate(2.5deg); }
+  86%  { transform:rotate(-1.2deg); }
+  100% { transform:rotate(0); }
+}
+@keyframes tile-out {
+  0%   { transform:rotate(0); opacity:1; }
+  14%  { transform:rotate(6deg); }
+  30%  { transform:rotate(-5deg); }
+  46%  { transform:rotate(4deg); }
+  62%  { transform:rotate(-3deg); opacity:1; }
+  100% { transform:translateY(16px) rotate(2deg); opacity:0; }
+}
+.tile.enter-env { animation:tile-env-in .45s ease-out both; }
+.tile.enter-ani { animation:tile-env-in .45s ease-out both; }
+.tile.leaving   { animation:tile-out .5s ease-in both; }
+.tile.ghost     { pointer-events:none; }
+@media (prefers-reduced-motion:reduce) {
+  .tile.enter-env, .tile.enter-ani, .tile.leaving { animation-duration:.01s; }
+}
+.crop { position:relative; display:block; overflow:hidden; border-radius:3px; background:#8a8a80; }
+.crop img { position:absolute; display:block; }
+.crop img.miss { display:none; }
+.crop[data-err]::after, .hc-inner[data-err]::after { content:attr(data-err); position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center; text-align:center; padding:2px;
+  font-size:9px; line-height:1.2; color:#fff; word-break:break-all; }
+.hc-inner { position:relative; }
+.lbl { display:block; background:#fff; border-radius:3px; margin-top:3px; text-align:center;
+        font-size:var(--fs-s); line-height:1.5; }
+
+.tile.ani { width:var(--tile); }
+.crop-sq { aspect-ratio:1/1; }
+.crop-sq img { width:var(--ani-w); left:var(--ani-x); top:var(--ani-y); }
+.bdg { position:absolute; width:1.8em; height:1.8em; border-radius:50%;
+        border:1.5px solid var(--ink); font-size:var(--fs); font-weight:700; line-height:1;
+        display:flex; align-items:center; justify-content:center; }
+.bdg-lv { top:6px; right:6px; background:var(--bdg-lv); }
+.bdg-eff { top:6px; left:6px; background:var(--bdg-eff); border-color:#9A9A94; color:#55554F;
+        font-weight:400; font-size:var(--fs-s); }
+
+.tile.env { width:var(--envw); flex:0 0 auto; }
+.crop-wide { aspect-ratio:6/1; }
+.crop-wide img { width:var(--env-w); left:var(--env-x); top:var(--env-y); }
+.tile.ani.empty { border:2px dashed var(--line); background:transparent;
+  min-height:calc(var(--tile) + 22px); }
+.tile.env.empty { border:2px dashed var(--line); background:transparent; color:#9A9A94;
+  display:flex; align-items:center; justify-content:center; font-size:var(--fs-s); }
+
+/* ---------- 境界バー ---------- */
+.bar { display:flex; margin-bottom:10px; }
+.bmid { flex:1 1 100%; display:flex; flex-direction:column; justify-content:center; gap:11px;
+  background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 14px; }
+.bmid-top { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
+.mid-btns { display:flex; gap:8px; flex-wrap:wrap; margin-left:18px; }
+.big { font-size:var(--fs-head); font-weight:700; color:var(--ink); }
+.bmid-bottom { display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; }
+.turnlog { border:1px solid var(--line); border-radius:6px; background:#FAFAF7;
+  padding:4px 10px; height:calc(var(--fs) * 1.9 + 8px); overflow-y:auto; }
+.turnlog .log-line { font-size:var(--fs-s); line-height:1.9; padding-left:0; }
+.turnlog .log-line::before { display:none; }
+
+/* ---------- 手札 ---------- */
+.hand-zone { padding:2px 0; }
+.hand-title { text-align:left; margin-bottom:9px; }
+.hint { font-size:var(--fs-s); color:var(--ink-sub); font-weight:400; }
+.topnote { font-size:var(--fs-s); color:var(--ink-sub); text-align:center; margin:0 0 9px; }
+.hand-title .hint { margin-left:8px; }
+.hand-title.empty { color:var(--ink-sub); }
+.hand-foot { display:flex; justify-content:center; gap:8px;
+  margin-top:22px; padding-top:20px; border-top:1px solid var(--line); }
+.hand-wrap { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-start; }
+.hand-card { border:3px solid var(--hand-ng); border-radius:10px; padding:2px; background:#fff; }
+.hand-card.ok { border-color:var(--hand-ok); }
+.hc-inner { display:block; width:var(--hand); aspect-ratio:2/3; border-radius:6px; overflow:hidden; }
+.hc-inner img { width:100%; height:100%; object-fit:contain; display:block; }
+.hc-inner img.miss { display:none; }
+
+/* ---------- オーバーレイ ---------- */
+.ov { position:fixed; inset:0; background:rgba(16,16,14,.82); display:none;
+  align-items:center; justify-content:center; padding:16px; z-index:50; }
+.ov.on { display:flex; }
+/* 重なりの優先順位：拡大表示 > ターン系・結果 > 一覧系 */
+#ovZoom { z-index:90; }
+#ovTitle, #ovFirst, #ovFirstOnline, #ovTurnYou, #ovTurnOpp, #ovTurnLast,
+#ovDraw, #ovTidy, #ovResult, #ovLevel, #ovQuit, #ovResign, #ovFx { z-index:70; }
+#ovDisc, #ovLog, #ovRule, #ovAbout, #ovBoard { z-index:85; }
+.ov-box { display:flex; gap:16px; align-items:center; flex-wrap:wrap; justify-content:center; }
+.ov-card { width:min(62vw, 320px); aspect-ratio:2/3; border-radius:10px; overflow:hidden; background:#fff; }
+.ov-card img { width:100%; height:100%; object-fit:contain; display:block; }
+.ov-btns { display:flex; flex-direction:column; gap:10px; }
+.btn-wrap { display:flex; flex-direction:column; gap:3px; align-items:stretch; }
+.why { font-size:var(--fs-s); color:#FFFFFF; text-align:center; }
+@media (orientation:portrait), (max-width:560px) {
+  .ov-box { flex-direction:column; }
+  .ov-btns { flex-direction:row; flex-wrap:wrap; justify-content:center; }
+}
+.ov-panel { background:var(--panel); border-radius:12px; padding:14px; max-width:760px;
+  max-height:84vh; overflow:auto; width:100%; }
+.ov-panel h3 { margin:0 0 10px; font-size:var(--fs-head); }
+.dgrid { display:flex; flex-wrap:wrap; justify-content:flex-start; gap:6px; margin-bottom:14px; }
+.dcard { width:clamp(52px,13vw,74px); aspect-ratio:2/3; border-radius:5px; overflow:hidden;
+  border:1px solid var(--line); background:#EDEDE8; }
+.dcard img { width:100%; height:100%; object-fit:contain; display:block; }
+.dcard img.miss { display:none; }
+.center { text-align:center; }
+
+/* ---------- オーバーレイ各種 ---------- */
+.ovp { background:var(--panel); border-radius:14px; padding:22px 20px; width:100%;
+  max-width:520px; max-height:86vh; overflow:auto; text-align:center; }
+.ovp.wide { max-width:660px; }
+.board-head { color:var(--ink); font-size:var(--fs); text-align:center; margin:0 0 11px; }
+.ov.full { background:linear-gradient(180deg,#E9F3FA 0%,#F3F9EA 42%,#DFEDCC 100%); padding:0; }
+.title-inner { width:100%; max-width:560px; padding:24px 22px; text-align:center; }
+.title-inner .logo { width:min(94%,520px); margin:0 auto; }
+.title-inner .ov-col { margin:0 auto; max-width:340px; }
+.title-inner .logo { margin-bottom:14px; }
+.ver { font-size:var(--fs-s); color:var(--ink-sub); letter-spacing:.08em; margin:0; }
+.tagline {
+  font-size:clamp(12px, 3.2vw, 15px); line-height:2.15; color:#2C4A24;
+  letter-spacing:.05em; margin:22px auto 26px; max-width:34em; padding:18px 0;
+  border-top:1px solid #A9C199; border-bottom:1px solid #A9C199;
+}
+.credit { font-size:var(--fs-s); color:var(--ink-sub); line-height:1.9; margin-top:26px; }
+.credit-note { font-size:.88em; opacity:.85; }
+.envbar { position:absolute; left:0; right:0; bottom:0; display:flex; height:9px; }
+.envbar span { flex:1; }
+.btn.wide { width:100%; }
+.ov-big { font-size:clamp(22px,6vw,32px); font-weight:700; margin:6px 0; }
+.ov-sub { font-size:var(--fs-head); color:var(--ink-sub); margin:0 0 4px; }
+.ov-lead { font-size:var(--fs-head); font-weight:700; margin:0 0 6px; }
+.ov-row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
+.ov-col { display:flex; flex-direction:column; gap:10px; align-items:center; margin-top:16px; }
+.tap-hint { font-size:var(--fs-s); color:var(--ink-sub); margin-top:14px; }
+.logo { width:min(78%,340px); margin:4px auto 10px; display:block; }
+.logo.miss { display:none; }
+
+.mini-card { width:clamp(54px,14vw,78px); aspect-ratio:2/3; border-radius:6px; overflow:hidden;
+  border:1px solid var(--line); background:#EDEDE8; }
+.mini-card img { width:100%; height:100%; object-fit:contain; display:block; }
+.mini-card img.miss { display:none; }
+.mini-row { display:flex; gap:7px; justify-content:center; flex-wrap:wrap; margin:12px 0 2px; }
+.draw-label { font-size:var(--fs); color:var(--ink-sub); text-align:center; margin:8px 0 0; }
+/* 手札なしの枠をカード画像と同じ大きさにして、引いたときにボタンがずれないようにする */
+.mini-row .rnone { width:clamp(54px,14vw,78px); border-radius:6px; }
+
+.tidy-grid { display:flex; gap:9px; justify-content:center; flex-wrap:wrap; margin:14px 0 4px; }
+.tidy-item { display:flex; flex-direction:column; align-items:center; gap:6px; }
+.tidy-item .mini-card { border:3px solid transparent; }
+.tidy-item.sel .mini-card { border-color:var(--hand-ok); }
+.tidy-state { font-size:var(--fs-s); color:var(--ink-sub); }
+.tidy-item.sel .tidy-state { color:#8A6400; font-weight:700; }
+.tidy-btn { padding:4px 10px; }
+.pick-grid { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:14px 0 4px; }
+/* 捨て札からの選択は枚数が多く折り返すので左寄せ */
+.pick-grid.left { justify-content:flex-start; }
+.pick-item { display:flex; flex-direction:column; align-items:center; gap:5px; }
+.pick-item .mini-card { border:3px solid transparent; border-radius:9px; }
+.pick-item.sel .mini-card { border-color:var(--hand-ok); }
+.pick-state { font-size:var(--fs-s); color:var(--ink-sub); }
+.pick-item.sel .pick-state { color:#8A6400; font-weight:700; }
+.pick-btn { padding:4px 12px; }
+
+.res-table { width:100%; border-collapse:collapse; margin:14px 0 4px; font-size:var(--fs); }
+.res-table th, .res-table td { padding:7px 6px; border-bottom:1px solid var(--line); }
+.res-table th { color:var(--ink-sub); font-weight:400; text-align:left; }
+.res-table td { text-align:center; font-weight:700; font-size:1.15em; }
+.res-table thead td { color:var(--ink-sub); font-weight:400; font-size:1em; }
+.res-table .sub { font-size:.85em; display:block; }
+.res-win { color:#1266C8; }
+.res-lose { color:var(--n-down); }
+
+.log { max-height:46vh; overflow:auto; border:1px solid var(--line); border-radius:8px;
+  padding:10px 12px; font-size:var(--fs-s); line-height:1.9; background:#FAFAF7; }
+.log-turn { font-weight:700; font-size:var(--fs); margin:9px 0 3px; padding-bottom:2px;
+  border-bottom:1px solid var(--line); }
+.log-turn:first-child { margin-top:0; }
+.log-line { padding-left:12px; position:relative; }
+.log-line::before { content:''; position:absolute; left:2px; top:.72em; width:5px; height:5px; border-radius:50%; }
+.log-line::before { background:#B4B4AE; }   /* 点は文字色に関わらず灰色で統一 */
+.log-line.eff { color:var(--n-up); }
+.log-line.lost { color:var(--n-down); }
+.tabs { display:flex; gap:6px; justify-content:center; margin-bottom:12px; }
+.tab { border:1.5px solid var(--ink); border-radius:8px 8px 0 0; padding:6px 16px;
+  background:#EDEDE8; font-size:var(--fs); font-weight:700; border-bottom-color:transparent; }
+.tab.on { background:var(--panel); }
+.tab:not(.on) { color:var(--ink-sub); background:#DEDEDA; }
+.rule-body { text-align:left; max-height:60vh; overflow:auto; padding:2px 4px; }
+.rule-body h4 { font-size:var(--fs-head); margin:16px 0 6px; padding-bottom:3px;
+  border-bottom:2px solid var(--ink); }
+.rule-body h4:first-child { margin-top:0; }
+.rule-body p { margin:4px 0; font-size:var(--fs); line-height:1.85; }
+.rule-body p.gap { margin-top:20px; }
+.rule-body ul { margin:4px 0; padding-left:1.3em; font-size:var(--fs); line-height:1.7; }
+.rule-body .cond { background:#F4F4F1; border-radius:8px; padding:10px 14px; margin:9px 0; }
+.rule-body .cond p { margin:5px 0; text-indent:-1.5em; padding-left:1.5em; }
+.rule-body .cno { font-weight:700; margin-right:5px; }
+.rule-body .sub { font-size:var(--fs-s); color:var(--ink-sub); }
+.rule-body .photo { display:block; width:100%; border-radius:8px; margin:22px 0 4px; }
+.rule-body .photo.miss { display:none; }
+.rule-body .caption { font-size:var(--fs-s); color:var(--ink-sub); margin:6px 0 0; text-align:center; }
+/* このゲームについて：日本語の文章として段落の頭を1文字下げる */
+#aboutBody p { text-indent:1em; }
+#aboutBody .caption { text-indent:0; }
+.rule-body .acts-list { list-style:none; padding-left:2px; margin:0; }
+.rule-body .acts-list li { padding-left:1.4em; position:relative; }
+.rule-body .acts-list li::before { content:'○'; position:absolute; left:0; color:var(--ink-sub); }
+.rule-body .lead { font-size:var(--fs-head); font-weight:700; margin:14px 0 5px; }
+.envchips { display:flex; flex-wrap:wrap; gap:5px; margin:8px 0; }
+.envchip { border-radius:6px; padding:3px 10px; font-size:var(--fs-s); color:#fff; }
+.filters { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:10px; }
+.fchip { border:1.5px solid var(--ink); border-radius:14px; padding:3px 11px;
+  font-size:var(--fs-s); background:#fff; }
+.fchip.on { background:var(--ink); color:#fff; }
+.frange { display:flex; align-items:center; gap:7px; font-size:var(--fs-s); width:100%; }
+.frange input { flex:1; }
+.rgrid { display:flex; flex-wrap:wrap; gap:6px; }
+.rsec { font-size:var(--fs-s); color:var(--ink-sub); margin:12px 0 5px; }
+.rsec2 { font-size:var(--fs-head); font-weight:700; margin:20px 0 8px;
+  padding-bottom:3px; border-bottom:2px solid var(--ink); }
+.flabel { font-size:var(--fs-s); color:var(--ink-sub); margin-right:2px; }
+.rsec:first-child { margin-top:0; }
+.rcard { width:clamp(50px,12vw,70px); aspect-ratio:2/3; border-radius:5px; overflow:hidden;
+  border:1px solid var(--line); background:#EDEDE8; }
+.rcard img { width:100%; height:100%; object-fit:contain; display:block; }
+.rcard img.miss { display:none; }
+.rcard.hide { display:none; }
+.rnone { width:clamp(50px,12vw,70px); aspect-ratio:2/3; border-radius:5px;
+  border:2px dashed var(--line); color:#9A9A94; font-size:var(--fs-s);
+  display:flex; align-items:center; justify-content:center; }
+.note { color:var(--ink-sub); font-size:var(--fs-s); text-align:center; margin:14px 0 4px; }
+</style>
+</head>
+<body>
+
+<div class="wrap" id="game" hidden>
+  <p class="topnote">画像をクリックするとカードが拡大表示されます</p>
+
+  <section class="zone op">
+    <div class="row" id="opEnv" style="margin-bottom:16px"></div>
+    <div class="row" id="opAni" style="margin-bottom:18px"></div>
+    <div class="zone-head">
+      <span class="zone-name">相手のビオトープ</span>
+      <span class="stat">環境レベル<b id="opLv">0</b></span>
+      <span class="stat">評価点の合計<b id="opSc">0</b></span>
+      <span class="stat">手札<b id="opHand">0</b>枚</span>
+      <span class="stat" id="opCpu"></span>
+    </div>
+  </section>
+
+  <div class="bar">
+    <div class="bmid">
+      <div class="bmid-top">
+        <div class="acts">
+          <span class="acts-label"><span class="big" id="turnWho">あなたのターン</span>　できる行動</span>
+          <span class="act" id="act0">環境カードを出す</span>
+          <span class="act" id="act1">環境カードを捨てる</span>
+          <span class="act" id="act2">動物カードを出す</span>
+        </div>
+      </div>
+      <div class="bmid-bottom">
+        <span class="stat" id="deckLeft">山札残り<b>0</b>枚</span>
+        <span class="mid-btns">
+          <button class="btn" id="discBtn">捨てられたカードを見る</button>
+          <button class="btn lg" id="endBtn">ターン終了</button>
+        </span>
+      </div>
+      <div class="turnlog" id="turnLog"></div>
+    </div>
+  </div>
+
+  <section class="zone me">
+    <div class="zone-head" style="margin-bottom:18px">
+      <span class="zone-name">あなたのビオトープ</span>
+      <span class="stat">環境レベル<b id="meLv">0</b></span>
+      <span class="stat">評価点の合計<b id="meSc">0</b><span id="meDiff"></span></span>
+    </div>
+    <div class="row" id="meAni" style="margin-bottom:16px"></div>
+    <div class="row" id="meEnv"></div>
+    <div class="hint" style="margin-top:7px">※出ている環境を捨てるときは画像をクリックします</div>
+  </section>
+
+  <div class="hand-zone">
+    <div class="hand-title" id="handTitle"></div>
+    <div class="hand-wrap" id="handWrap"></div>
+    <div class="hand-foot">
+      <button class="btn" id="logBtn">ゲームログ</button>
+      <button class="btn" id="ruleBtn">ルール確認</button>
+      <button class="btn" id="quitBtn">タイトルに戻る</button>
+      <button class="btn cool" id="sfxBtn">効果音：ON</button>
+    </div>
+  </div>
+
+  <p class="note" id="dbgBox" hidden></p>
+</div>
+
+<div class="ov full on" id="ovTitle">
+  <div class="title-inner">
+    <img class="logo" src="images/title_logo.png" alt="ビオトープカードゲーム デジタル体験版" onerror="this.classList.add('miss')">
+    <p class="ver">バージョン 0.5.8</p>
+
+    <p class="tagline">
+      さまざまな環境を組み合わせ、そこに暮らす動物たちを見つけよう。<br>
+      自分だけのビオトープをつくり、その豊かさを競う対戦ゲーム。
+    </p>
+
+    <div class="ov-col">
+      <button class="btn lg wide" id="cpuBtn">1人で遊ぶ（CPUと対戦）</button>
+      <button class="btn lg wide off">2人で遊ぶ（オンライン対戦）</button>
+      <button class="btn lg wide" id="aboutBtn">このゲームについて</button>
+      <button class="btn lg wide" id="rulesBtn">ルールを確認する</button>
+      <button class="btn lg wide cool" id="sfxBtnTitle">効果音：ON</button>
+    </div>
+    <p class="credit">制作：特殊活動友の会（2026）<br>
+      <span class="credit-note">※ ゲーム中の写真はすべて制作者による撮影</span></p>
+  </div>
+  <div class="envbar">
+    <span style="background:#12501B"></span><span style="background:#B4E5A2"></span>
+    <span style="background:#0000FF"></span><span style="background:#CAEEFC"></span>
+    <span style="background:#E59EDD"></span><span style="background:#E97132"></span>
+  </div>
+</div>
+
+<div class="ov" id="ovLevel">
+  <div class="ovp">
+    <p class="ov-lead">CPUのレベル</p>
+    <div class="ov-col">
+      <button class="btn lg wide" data-cpulv="1">初心者</button>
+      <button class="btn lg wide" data-cpulv="2">中級者</button>
+      <button class="btn lg wide" data-cpulv="3">上級者</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ovFirst">
+  <div class="ovp">
+    <p class="ov-lead">先攻・後攻の決定</p>
+    <div class="ov-col">
+      <button class="btn lg wide" data-first="0">先攻を選ぶ</button>
+      <button class="btn lg wide" data-first="1">後攻を選ぶ</button>
+      <button class="btn lg wide" data-first="r">ランダムで決める</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ovTurnYou"><div class="ovp">
+  <p class="ov-big">あなたのターン</p><p class="ov-sub" id="ovTurnYouSub"></p></div></div>
+<div class="ov" id="ovTurnOpp"><div class="ovp">
+  <p class="ov-big">相手のターン</p><p class="ov-sub" id="ovTurnOppSub"></p></div></div>
+<div class="ov" id="ovTurnLast"><div class="ovp">
+  <p class="ov-big">最後のターン</p>
+  <p class="ov-sub" id="ovTurnLastSub">山札がなくなったので、このターンでゲーム終了です。</p></div></div>
+
+<div class="ov" id="ovDraw">
+  <div class="ovp">
+    <p class="ov-lead">手札の補充</p>
+    <p class="ov-sub">1枚以上引いてください。（山札残り<span id="drawDeck">0</span>枚）</p>
+    <div class="mini-row" id="drawHand"></div>
+    <p class="draw-label" id="drawLabel">あなたの手札</p>
+    <div class="ov-row">
+      <button class="btn lg" id="drawBtn">カードを引く</button>
+      <button class="btn lg off" id="drawStop">引かない</button>
+    </div>
+    <div class="ov-row" style="margin-top:9px">
+      <button class="btn lg" id="drawBoardBtn">ビオトープを見る</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ovTidy">
+  <div class="ovp wide">
+    <p class="ov-lead">手札の整理</p>
+    <p class="ov-sub">手札が5枚あるときは1枚以上捨ててください。</p>
+    <div class="tidy-grid" id="tidyGrid"></div>
+    <div class="ov-row">
+      <button class="btn lg" id="tidyAll">すべて捨てる</button>
+      <button class="btn lg off" id="tidyOk">決定</button>
+    </div>
+    <div class="ov-row" style="margin-top:9px">
+      <button class="btn lg" id="tidyBoardBtn">ビオトープを見る</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ovFx">
+  <div class="ovp wide">
+    <p class="ov-lead" id="fxTitle"></p>
+    <p class="ov-sub" id="fxSub"></p>
+    <div id="fxBody"></div>
+    <div class="ov-row" id="fxBtns"></div>
+    <div class="ov-row" id="fxBtns2" style="margin-top:9px"></div>
+  </div>
+</div>
+
+<div class="ov" id="ovQuit">
+  <div class="ovp">
+    <p class="ov-lead">ゲームが中断されますがよろしいですか？</p>
+    <div class="ov-row">
+      <button class="btn lg" id="quitYes">はい</button>
+      <button class="btn lg" data-close>いいえ</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ovResult">
+  <div class="ovp">
+    <p class="ov-big" id="resHead"></p>
+    <table class="res-table">
+      <thead><tr id="resCols"></tr></thead>
+      <tbody id="resBody"></tbody>
+    </table>
+    <div class="ov-row">
+      <button class="btn lg" id="resBoard">ビオトープ確認</button>
+      <button class="btn lg" id="resLog">ゲームログ</button>
+    </div>
+    <div class="ov-row" style="margin-top:22px; padding-top:20px; border-top:1px solid var(--line)">
+      <button class="btn lg" id="resAgain">再戦する</button>
+      <button class="btn lg" id="resTitle">タイトルに戻る</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ovBoard">
+  <div class="ovp wide" style="text-align:left">
+    <p class="board-head" id="boardHead" hidden></p>
+    <section class="zone me" id="boardMe" style="margin-bottom:10px"></section>
+    <section class="zone op" id="boardOp"></section>
+    <div class="ov-row"><button class="btn lg" data-close>戻る</button></div>
+  </div>
+</div>
+
+<div class="ov" id="ovDisc">
+  <div class="ovp wide">
+    <h3>捨てられたカード</h3>
+    <div class="dgrid" id="discGrid"></div>
+    <div class="center"><button class="btn lg" data-close>戻る</button></div>
+  </div>
+</div>
+
+<div class="ov" id="ovLog">
+  <div class="ovp wide" style="text-align:left">
+    <p class="ov-lead" style="text-align:center">ゲームログ</p>
+    <div class="log" id="logBox"></div>
+    <div class="ov-row">
+      <button class="btn lg" id="copyBtn" hidden>コピー（デバッグ用）</button>
+      <button class="btn lg" data-close>戻る</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ovZoom">
+  <div class="ov-box">
+    <div class="ov-card"><img id="ovImg" src="" alt=""></div>
+    <div class="ov-btns" id="ovBtns"></div>
+  </div>
+</div>
+
+<div class="ov" id="ovRule">
+  <div class="ovp wide">
+    <div class="tabs">
+      <button class="tab on" data-tab="tabQuick">ゲームのルール</button>
+      <button class="tab" data-tab="tabCards">カード一覧</button>
+    </div>
+
+    <div class="rule-body" id="tabQuick">
+      <h4>ゲームの目的</h4>
+      <p>これはビオトープにさまざまな環境を配置し、そこに生息する動物を発見していくゲームです。</p>
+      <p>動物には<b>評価点</b>があり、その合計がビオトープの豊かさを表します。ゲーム終了時に、より豊かなビオトープをつくった方の勝利です。</p>
+
+      <h4>1ターンの流れ</h4>
+
+      <p class="lead">（1）手札の補充</p>
+      <p>山札から<b>1枚以上</b>引きます。手札が5枚になるまで何枚でも引けます。</p>
+
+      <p class="lead">（2）行動</p>
+      <p>次から<b>2つまで</b>できます。同じ行動は2回できません。</p>
+      <div class="cond">
+        <ul class="acts-list">
+          <li>あなたのビオトープに環境カードを1枚出す</li>
+          <li>あなたのビオトープから環境カードを1枚捨てる</li>
+          <li>どちらかのビオトープに動物カードを1枚出す</li>
+        </ul>
+      </div>
+
+      <p class="lead">（3）手札の整理</p>
+      <p>好きな枚数を捨てます。手札が5枚あるときは、<b>必ず1枚以上</b>捨てます。</p>
+
+      <h4>環境カード</h4>
+      <p>環境カードは6タイプあります。</p>
+      <div class="envchips">
+        <span class="envchip" style="background:#12501B">森林 ＋2</span>
+        <span class="envchip" style="background:#B4E5A2;color:#1A1A1A">草原 ＋2</span>
+        <span class="envchip" style="background:#0000FF">湖沼 ＋2</span>
+        <span class="envchip" style="background:#CAEEFC;color:#1A1A1A">河川 ＋2</span>
+        <span class="envchip" style="background:#E59EDD;color:#1A1A1A">湿地 ＋3</span>
+        <span class="envchip" style="background:#E97132">渓流 ＋1</span>
+      </div>
+      <p>出ている環境カードのレベルの合計が、そのビオトープの<b>環境レベル</b>になります。</p>
+      <p>環境カードは<b>5枚まで</b>出せます。すでに出ているものと同じタイプの環境を出すこともできます。</p>
+
+      <h4>動物カード</h4>
+      <p>動物カードを出すときは、ビオトープが次の条件を満たしている必要があります。</p>
+      <div class="cond">
+        <p><span class="cno">①</span>その動物の<b>生息環境が出ている</b><span class="sub">（生息環境が2つある動物は一方だけでよい）</span></p>
+        <p><span class="cno">②</span>そのビオトープの<b>環境レベルが必要環境レベル以上</b></p>
+      </div>
+      <p>出したあとも条件を満たし続ける必要があります。満たせなくなった動物は、すぐにいなくなります。</p>
+      <p>相手のビオトープに出すときは、<b>相手のビオトープ</b>が条件を満たしている必要があります。</p>
+      <p>ビオトープに出せる動物カードの枚数に制限はありません。</p>
+
+      <h4>ゲーム終了と勝敗</h4>
+      <p>山札がなくなったターンの次、相手のターンが終わった時点でゲーム終了です。<b>最後のターンは手札の補充ができません。</b></p>
+      <p>ビオトープにいる動物の<b>評価点の合計が高い方の勝利</b>です。同点の場合は、ビオトープにいる動物が多い方の勝利です。</p>
+    </div>
+
+    <div class="rule-body" id="tabCards" hidden>
+      <div class="rsec2" style="margin-top:0">動物カード（<span id="rcntA">44</span>枚）</div>
+      <div class="filters" id="rfilters">
+        <span class="flabel">生息環境</span>
+        <button class="fchip on" data-hab="">すべて</button>
+        <button class="fchip" data-hab="森林">森林</button>
+        <button class="fchip" data-hab="草原">草原</button>
+        <button class="fchip" data-hab="湖沼">湖沼</button>
+        <button class="fchip" data-hab="河川">河川</button>
+        <button class="fchip" data-hab="湿地">湿地</button>
+        <button class="fchip" data-hab="渓流">渓流</button>
+      </div>
+      <div class="filters" id="rfiltersLv">
+        <span class="flabel">必要環境レベル</span>
+        <button class="fchip on" data-lv="">すべて</button>
+        <button class="fchip" data-lv="2">2</button>
+        <button class="fchip" data-lv="3">3</button>
+        <button class="fchip" data-lv="4">4</button>
+        <button class="fchip" data-lv="5">5</button>
+        <button class="fchip" data-lv="6">6</button>
+        <button class="fchip" data-lv="7">7</button>
+        <button class="fchip" data-lv="8">8</button>
+        <button class="fchip" data-lv="9">9</button>
+        <button class="fchip" data-lv="10">10</button>
+        <button class="fchip" data-lv="11">11</button>
+        <button class="fchip" data-lv="12">12</button>
+      </div>
+      <div class="rgrid" id="rgridA"><div class="rcard" data-card="an01" data-kind="zoom-only" data-hab="森林" data-lv="2"><img src="images/card/card_an01.png" alt="ニホンジカ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an02" data-kind="zoom-only" data-hab="森林" data-lv="3"><img src="images/card/card_an02.png" alt="イノシシ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an03" data-kind="zoom-only" data-hab="森林" data-lv="4"><img src="images/card/card_an03.png" alt="ニホンテン" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an04" data-kind="zoom-only" data-hab="森林" data-lv="4"><img src="images/card/card_an04.png" alt="カブトムシ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an05" data-kind="zoom-only" data-hab="森林" data-lv="5"><img src="images/card/card_an05.png" alt="オオスズメバチ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an13" data-kind="zoom-only" data-hab="森林" data-lv="5"><img src="images/card/card_an13.png" alt="アライグマ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an06" data-kind="zoom-only" data-hab="森林" data-lv="7"><img src="images/card/card_an06.png" alt="ニホンリス" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an07" data-kind="zoom-only" data-hab="森林" data-lv="7"><img src="images/card/card_an07.png" alt="ニホンヒキガエル" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an08" data-kind="zoom-only" data-hab="森林" data-lv="7"><img src="images/card/card_an08.png" alt="モリアオガエル" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an09" data-kind="zoom-only" data-hab="森林" data-lv="8"><img src="images/card/card_an09.png" alt="ムササビ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an10" data-kind="zoom-only" data-hab="森林" data-lv="8"><img src="images/card/card_an10.png" alt="ツキノワグマ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an11" data-kind="zoom-only" data-hab="森林" data-lv="10"><img src="images/card/card_an11.png" alt="ニホンカモシカ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an12" data-kind="zoom-only" data-hab="森林" data-lv="12"><img src="images/card/card_an12.png" alt="クマタカ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an14" data-kind="zoom-only" data-hab="草原" data-lv="2"><img src="images/card/card_an14.png" alt="モンキチョウ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an15" data-kind="zoom-only" data-hab="草原" data-lv="3"><img src="images/card/card_an15.png" alt="ニホンノウサギ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an16" data-kind="zoom-only" data-hab="草原" data-lv="4"><img src="images/card/card_an16.png" alt="ニホントカゲ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an17" data-kind="zoom-only" data-hab="草原" data-lv="6"><img src="images/card/card_an17.png" alt="モズ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an18" data-kind="zoom-only" data-hab="草原" data-lv="6"><img src="images/card/card_an18.png" alt="ナミハンミョウ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an19" data-kind="zoom-only" data-hab="草原" data-lv="7"><img src="images/card/card_an19.png" alt="アカギツネ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an20" data-kind="zoom-only" data-hab="湖沼" data-lv="5"><img src="images/card/card_an20.png" alt="オオバン" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an23" data-kind="zoom-only" data-hab="湖沼" data-lv="5"><img src="images/card/card_an23.png" alt="オオクチバス" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an21" data-kind="zoom-only" data-hab="湖沼" data-lv="6"><img src="images/card/card_an21.png" alt="カイツブリ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an22" data-kind="zoom-only" data-hab="湖沼" data-lv="8"><img src="images/card/card_an22.png" alt="カネヒラ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an25" data-kind="zoom-only" data-hab="河川" data-lv="5"><img src="images/card/card_an25.png" alt="ヌートリア" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an24" data-kind="zoom-only" data-hab="河川" data-lv="8"><img src="images/card/card_an24.png" alt="ニホンイシガメ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an26" data-kind="zoom-only" data-hab="湿地" data-lv="7"><img src="images/card/card_an26.png" alt="アカハライモリ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an27" data-kind="zoom-only" data-hab="湿地" data-lv="10"><img src="images/card/card_an27.png" alt="コウノトリ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an28" data-kind="zoom-only" data-hab="湿地" data-lv="10"><img src="images/card/card_an28.png" alt="クロゲンゴロウ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an32" data-kind="zoom-only" data-hab="渓流" data-lv="5"><img src="images/card/card_an32.png" alt="チュウゴクオオサンショウウオ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an29" data-kind="zoom-only" data-hab="渓流" data-lv="6"><img src="images/card/card_an29.png" alt="カジカガエル" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an30" data-kind="zoom-only" data-hab="渓流" data-lv="9"><img src="images/card/card_an30.png" alt="ヤマセミ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an31" data-kind="zoom-only" data-hab="渓流" data-lv="9"><img src="images/card/card_an31.png" alt="オオサンショウウオ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an33" data-kind="zoom-only" data-hab="森林,湿地" data-lv="6"><img src="images/card/card_an33.png" alt="ヤマカガシ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an34" data-kind="zoom-only" data-hab="森林,湿地" data-lv="9"><img src="images/card/card_an34.png" alt="ニホンアカガエル" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an35" data-kind="zoom-only" data-hab="森林,渓流" data-lv="5"><img src="images/card/card_an35.png" alt="タゴガエル" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an36" data-kind="zoom-only" data-hab="森林,渓流" data-lv="11"><img src="images/card/card_an36.png" alt="ヒダサンショウウオ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an37" data-kind="zoom-only" data-hab="湖沼,河川" data-lv="3"><img src="images/card/card_an37.png" alt="カルガモ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an38" data-kind="zoom-only" data-hab="湖沼,河川" data-lv="3"><img src="images/card/card_an38.png" alt="ドジョウ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an39" data-kind="zoom-only" data-hab="湖沼,河川" data-lv="5"><img src="images/card/card_an39.png" alt="カワセミ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an40" data-kind="zoom-only" data-hab="湖沼,湿地" data-lv="5"><img src="images/card/card_an40.png" alt="ショウジョウトンボ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an41" data-kind="zoom-only" data-hab="湖沼,湿地" data-lv="5"><img src="images/card/card_an41.png" alt="ウシガエル" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an42" data-kind="zoom-only" data-hab="湖沼,湿地" data-lv="5"><img src="images/card/card_an42.png" alt="アメリカザリガニ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an43" data-kind="zoom-only" data-hab="河川,湿地" data-lv="2"><img src="images/card/card_an43.png" alt="アオサギ" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="an44" data-kind="zoom-only" data-hab="河川,渓流" data-lv="4"><img src="images/card/card_an44.png" alt="サワガニ" onerror="this.classList.add('miss')"></div><div class="rnone" id="rnoneA" hidden>なし</div></div>
+
+      <div class="rsec2">環境カード（<span id="rcntE">36</span>枚）</div>
+      <div class="filters" id="rfiltersEnv">
+        <span class="flabel">生息環境</span>
+        <button class="fchip on" data-ehab="">すべて</button>
+        <button class="fchip" data-ehab="森林">森林</button>
+        <button class="fchip" data-ehab="草原">草原</button>
+        <button class="fchip" data-ehab="湖沼">湖沼</button>
+        <button class="fchip" data-ehab="河川">河川</button>
+        <button class="fchip" data-ehab="湿地">湿地</button>
+        <button class="fchip" data-ehab="渓流">渓流</button>
+      </div>
+      <div class="rgrid" id="rgridE"><div class="rcard" data-card="en01" data-kind="zoom-only" data-etype="森林"><img src="images/card/card_en01.png" alt="森林" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en02" data-kind="zoom-only" data-etype="森林"><img src="images/card/card_en02.png" alt="森林" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en03" data-kind="zoom-only" data-etype="森林"><img src="images/card/card_en03.png" alt="森林" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en04" data-kind="zoom-only" data-etype="森林"><img src="images/card/card_en04.png" alt="森林" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en05" data-kind="zoom-only" data-etype="森林"><img src="images/card/card_en05.png" alt="森林" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en06" data-kind="zoom-only" data-etype="森林"><img src="images/card/card_en06.png" alt="森林" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en07" data-kind="zoom-only" data-etype="森林"><img src="images/card/card_en07.png" alt="森林" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en08" data-kind="zoom-only" data-etype="森林"><img src="images/card/card_en08.png" alt="森林" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en09" data-kind="zoom-only" data-etype="草原"><img src="images/card/card_en09.png" alt="草原" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en10" data-kind="zoom-only" data-etype="草原"><img src="images/card/card_en10.png" alt="草原" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en11" data-kind="zoom-only" data-etype="草原"><img src="images/card/card_en11.png" alt="草原" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en12" data-kind="zoom-only" data-etype="草原"><img src="images/card/card_en12.png" alt="草原" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en13" data-kind="zoom-only" data-etype="草原"><img src="images/card/card_en13.png" alt="草原" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en14" data-kind="zoom-only" data-etype="草原"><img src="images/card/card_en14.png" alt="草原" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en15" data-kind="zoom-only" data-etype="湖沼"><img src="images/card/card_en15.png" alt="湖沼" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en16" data-kind="zoom-only" data-etype="湖沼"><img src="images/card/card_en16.png" alt="湖沼" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en17" data-kind="zoom-only" data-etype="湖沼"><img src="images/card/card_en17.png" alt="湖沼" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en18" data-kind="zoom-only" data-etype="湖沼"><img src="images/card/card_en18.png" alt="湖沼" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en19" data-kind="zoom-only" data-etype="湖沼"><img src="images/card/card_en19.png" alt="湖沼" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en20" data-kind="zoom-only" data-etype="湖沼"><img src="images/card/card_en20.png" alt="湖沼" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en21" data-kind="zoom-only" data-etype="河川"><img src="images/card/card_en21.png" alt="河川" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en22" data-kind="zoom-only" data-etype="河川"><img src="images/card/card_en22.png" alt="河川" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en23" data-kind="zoom-only" data-etype="河川"><img src="images/card/card_en23.png" alt="河川" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en24" data-kind="zoom-only" data-etype="河川"><img src="images/card/card_en24.png" alt="河川" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en25" data-kind="zoom-only" data-etype="河川"><img src="images/card/card_en25.png" alt="河川" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en26" data-kind="zoom-only" data-etype="河川"><img src="images/card/card_en26.png" alt="河川" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en27" data-kind="zoom-only" data-etype="湿地"><img src="images/card/card_en27.png" alt="湿地" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en28" data-kind="zoom-only" data-etype="湿地"><img src="images/card/card_en28.png" alt="湿地" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en29" data-kind="zoom-only" data-etype="湿地"><img src="images/card/card_en29.png" alt="湿地" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en30" data-kind="zoom-only" data-etype="湿地"><img src="images/card/card_en30.png" alt="湿地" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en31" data-kind="zoom-only" data-etype="湿地"><img src="images/card/card_en31.png" alt="湿地" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en32" data-kind="zoom-only" data-etype="渓流"><img src="images/card/card_en32.png" alt="渓流" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en33" data-kind="zoom-only" data-etype="渓流"><img src="images/card/card_en33.png" alt="渓流" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en34" data-kind="zoom-only" data-etype="渓流"><img src="images/card/card_en34.png" alt="渓流" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en35" data-kind="zoom-only" data-etype="渓流"><img src="images/card/card_en35.png" alt="渓流" onerror="this.classList.add('miss')"></div>
+<div class="rcard" data-card="en36" data-kind="zoom-only" data-etype="渓流"><img src="images/card/card_en36.png" alt="渓流" onerror="this.classList.add('miss')"></div><div class="rnone" id="rnoneE" hidden>なし</div></div>
+    </div>
+
+    <div class="ov-row"><button class="btn lg" data-close>戻る</button></div>
+  </div>
+</div>
+
+<div class="ov" id="ovAbout">
+  <div class="ovp wide">
+    <div class="rule-body" id="aboutBody">
+      <h4>ビオトープカードゲームとは</h4>
+      <p>ビオトープとは、ドイツ語の <b>Bio</b>（生物）と <b>Top</b>（場所）を組み合わせた言葉で、<b>生物が暮らす空間</b>を表しています。</p>
+      <p>このゲームは、お互いにビオトープをつくってその豊かさを競う、2人用の対戦型カードゲームです。自分のビオトープにさまざまな環境をつくり、そこに生息する動物を発見します。動物には評価点があり、その合計がビオトープの豊かさを表します。</p>
+
+      <p class="gap">このゲームは<b>80枚のカードを共有</b>して遊びます。トレーディングカードゲームのようなプレイ感がありながら、カード集めもデッキ構築もいりません。開始前に80枚のうち8枚を除外するので、ゲームごとに使用するカードが変化します。</p>
+      <p>使用するカードは、<b>環境カード（36枚）</b>と<b>動物カード（44枚）</b>です。環境カードは森林・草原・湖沼・河川・湿地・渓流の6タイプで、出すことでビオトープの環境レベルが上がっていきます。動物カードにはそれぞれ生息環境と必要環境レベルが決まっていて、条件を満たすビオトープにしか出せません。条件を満たせば相手のビオトープに動物カードを出すこともできます。</p>
+
+      <p class="gap">デジタル体験版は、実際に2人でカードを並べて対戦するアナログゲームとして制作した<b>「ビオトープカードゲーム 京都試作版」</b>をデジタル化したものになります。京都試作版に登場する動物はすべて京都府に生息する種で、カードには京都府レッドリストの区分を記載しています。</p>
+
+      <p class="gap">このゲームは、生態系を細かく再現したものではありません。<b>ゲームとして理解しやすく、生態学的に大きな違和感のない形へ抽象化すること</b>がコンセプトになっています。</p>
+      <p>例えば環境レベルは、実在する生態学的指標を再現したものではなく、環境の規模・質・複雑さ・資源量などを示す、ゲーム独自の抽象的な指標です。動物の評価点も、その動物の強さや希少さそのものではなく、その動物が生息するために必要となる背景の環境や生態系の大きさを、ゲーム用に数値化したものです。評価点の高い動物ほど必要環境レベルが高くなっており、「環境が整うほど条件の厳しい動物が生息できる」という関係を表現しています。</p>
+      <p>環境カードはビオトープから取り除くこともでき、これにより条件を満たせなくなった動物カードはビオトープからいなくなります。これは環境変化とそれに伴う生息動物の変化を表しています。</p>
+      <p>動物カードは実在の動物をもとに設定しているので、「なぜこの生息環境なのか」「なぜ生息条件が厳しいのか」「なぜこの効果をもつのか」といった疑問をもってもらえると嬉しいです。</p>
+
+      <p class="gap">ビオトープカードゲームは、地域ごとの生物相を反映できる構造を想定しています。</p>
+      <p>基本ルールはそのままに、登場する環境や動物種を差し替えれば、別の地域版に展開できます。<b>カード構成により地域ごとの自然の違いを表現できる</b>ことも、このゲームの特徴のひとつです。</p>
+
+      <img class="photo" src="images/photo_analog.png" alt="アナログ版のカードとパッケージ" onerror="this.classList.add('miss')">
+      <p class="caption">ビオトープカードゲーム 京都試作版</p>
+    </div>
+    <div class="ov-row"><button class="btn lg" data-close>戻る</button></div>
+  </div>
+</div>
+
+<script>
+const CARDS = {"schemaVersion": "0.1", "game": "ビオトープカードゲーム", "imageDir": "images", "rules": {"removeFromDeckAtStart": 8, "initialHand": 5, "handLimit": 5, "handLimitEndOfTurn": 4, "maxEnvironmentCards": 5, "actionsPerTurn": 2, "mustDrawAtLeast": 1, "actionTypes": ["playEnvironment", "discardEnvironment", "playAnimal"], "scoreCanBeNegative": true, "tiebreak": "animalCardCount", "revalidation": {"trigger": "盤面が変化するたび（行動1回ごと）", "mode": "simultaneous", "loop": "脱落がなくなるまで繰り返す", "selfExclusion": "環境レベル修整（an25/an44）は自身の必要レベル判定には適用しない", "note": "ヌートリア脱落によるレベル上昇では、既に捨てられた動物は戻らない"}}, "environmentTypes": ["森林", "草原", "湖沼", "河川", "湿地", "渓流"], "animalTags": ["哺乳類", "鳥類", "爬虫類", "両生類", "魚類", "昆虫類", "甲殻類", "絶滅危惧種", "特定外来生物"], "environments": [{"id": "en01", "no": 1, "image": "images/card/card_en01.png", "type": "森林", "level": 2}, {"id": "en02", "no": 2, "image": "images/card/card_en02.png", "type": "森林", "level": 2}, {"id": "en03", "no": 3, "image": "images/card/card_en03.png", "type": "森林", "level": 2}, {"id": "en04", "no": 4, "image": "images/card/card_en04.png", "type": "森林", "level": 2}, {"id": "en05", "no": 5, "image": "images/card/card_en05.png", "type": "森林", "level": 2}, {"id": "en06", "no": 6, "image": "images/card/card_en06.png", "type": "森林", "level": 2}, {"id": "en07", "no": 7, "image": "images/card/card_en07.png", "type": "森林", "level": 2}, {"id": "en08", "no": 8, "image": "images/card/card_en08.png", "type": "森林", "level": 2}, {"id": "en09", "no": 9, "image": "images/card/card_en09.png", "type": "草原", "level": 2}, {"id": "en10", "no": 10, "image": "images/card/card_en10.png", "type": "草原", "level": 2}, {"id": "en11", "no": 11, "image": "images/card/card_en11.png", "type": "草原", "level": 2}, {"id": "en12", "no": 12, "image": "images/card/card_en12.png", "type": "草原", "level": 2}, {"id": "en13", "no": 13, "image": "images/card/card_en13.png", "type": "草原", "level": 2}, {"id": "en14", "no": 14, "image": "images/card/card_en14.png", "type": "草原", "level": 2}, {"id": "en15", "no": 15, "image": "images/card/card_en15.png", "type": "湖沼", "level": 2}, {"id": "en16", "no": 16, "image": "images/card/card_en16.png", "type": "湖沼", "level": 2}, {"id": "en17", "no": 17, "image": "images/card/card_en17.png", "type": "湖沼", "level": 2}, {"id": "en18", "no": 18, "image": "images/card/card_en18.png", "type": "湖沼", "level": 2}, {"id": "en19", "no": 19, "image": "images/card/card_en19.png", "type": "湖沼", "level": 2}, {"id": "en20", "no": 20, "image": "images/card/card_en20.png", "type": "湖沼", "level": 2}, {"id": "en21", "no": 21, "image": "images/card/card_en21.png", "type": "河川", "level": 2}, {"id": "en22", "no": 22, "image": "images/card/card_en22.png", "type": "河川", "level": 2}, {"id": "en23", "no": 23, "image": "images/card/card_en23.png", "type": "河川", "level": 2}, {"id": "en24", "no": 24, "image": "images/card/card_en24.png", "type": "河川", "level": 2}, {"id": "en25", "no": 25, "image": "images/card/card_en25.png", "type": "河川", "level": 2}, {"id": "en26", "no": 26, "image": "images/card/card_en26.png", "type": "河川", "level": 2}, {"id": "en27", "no": 27, "image": "images/card/card_en27.png", "type": "湿地", "level": 3}, {"id": "en28", "no": 28, "image": "images/card/card_en28.png", "type": "湿地", "level": 3}, {"id": "en29", "no": 29, "image": "images/card/card_en29.png", "type": "湿地", "level": 3}, {"id": "en30", "no": 30, "image": "images/card/card_en30.png", "type": "湿地", "level": 3}, {"id": "en31", "no": 31, "image": "images/card/card_en31.png", "type": "湿地", "level": 3}, {"id": "en32", "no": 32, "image": "images/card/card_en32.png", "type": "渓流", "level": 1}, {"id": "en33", "no": 33, "image": "images/card/card_en33.png", "type": "渓流", "level": 1}, {"id": "en34", "no": 34, "image": "images/card/card_en34.png", "type": "渓流", "level": 1}, {"id": "en35", "no": 35, "image": "images/card/card_en35.png", "type": "渓流", "level": 1}, {"id": "en36", "no": 36, "image": "images/card/card_en36.png", "type": "渓流", "level": 1}], "animals": [{"id": "an01", "no": 1, "image": "images/card/card_an01.png", "name": "ニホンジカ", "subspecies": "ホンシュウジカ", "scientificName": "Cervus nippon", "taxon": "偶蹄目 シカ科", "redList": null, "habitats": ["森林"], "reqLevel": 2, "score": 1, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": "同じビオトープにいる、この動物以外の森林に生息する動物は、評価点－１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "sameBiotope", "exceptSelf": true, "habitat": "森林"}, "delta": -1}}, {"id": "an02", "no": 2, "image": "images/card/card_an02.png", "name": "イノシシ", "subspecies": "ニホンイノシシ", "scientificName": "Sus scrofa", "taxon": "偶蹄目 イノシシ科", "redList": null, "habitats": ["森林"], "reqLevel": 3, "score": 1, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an03", "no": 3, "image": "images/card/card_an03.png", "name": "ニホンテン", "subspecies": "ホンドテン", "scientificName": "Martes melampus", "taxon": "食肉目 イタチ科", "redList": null, "habitats": ["森林"], "reqLevel": 4, "score": 2, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an04", "no": 4, "image": "images/card/card_an04.png", "name": "カブトムシ", "subspecies": null, "scientificName": "Trypoxylus dichotomus", "taxon": "コウチュウ目 コガネムシ科", "redList": null, "habitats": ["森林"], "reqLevel": 4, "score": 2, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an05", "no": 5, "image": "images/card/card_an05.png", "name": "オオスズメバチ", "subspecies": null, "scientificName": "Vespa mandarinia", "taxon": "ハチ目 スズメバチ科", "redList": null, "habitats": ["森林"], "reqLevel": 5, "score": 2, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": "対戦相手のビオトープにこのカードを出したとき、対戦相手は手札をすべて捨てる。", "effect": {"kind": "trigger.onPlay", "when": "playedToOpponentBiotope", "action": "discardHand", "actor": "biotopeOwner", "optional": false}}, {"id": "an06", "no": 6, "image": "images/card/card_an06.png", "name": "ニホンリス", "subspecies": null, "scientificName": "Sciurus lis", "taxon": "齧歯目 リス科", "redList": null, "habitats": ["森林"], "reqLevel": 7, "score": 5, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an07", "no": 7, "image": "images/card/card_an07.png", "name": "ニホンヒキガエル", "subspecies": null, "scientificName": "Bufo japonicus", "taxon": "無尾目 ヒキガエル科", "redList": "準絶滅危惧種", "habitats": ["森林"], "reqLevel": 7, "score": 5, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": "ビオトープに湿地があるとき、この動物は評価点＋１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "self"}, "delta": 1, "condition": {"type": "biotopeHasEnv", "env": "湿地"}}}, {"id": "an08", "no": 8, "image": "images/card/card_an08.png", "name": "モリアオガエル", "subspecies": null, "scientificName": "Zhangixalus arboreus", "taxon": "無尾目 アオガエル科", "redList": "要注目種", "habitats": ["森林"], "reqLevel": 7, "score": 4, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": "湿地があるビオトープにこのカードを出したとき、手札にアカハライモリがあるなら、追加で同じビオトープに出してもよい。", "effect": {"kind": "trigger.onPlay", "action": "playFromHand", "cardId": "an26", "toBiotope": "same", "requireLegal": true, "optional": true, "condition": {"type": "biotopeHasEnv", "env": "湿地"}}}, {"id": "an09", "no": 9, "image": "images/card/card_an09.png", "name": "ムササビ", "subspecies": null, "scientificName": "Petaurista leucogenys", "taxon": "齧歯目 リス科", "redList": "準絶滅危惧種", "habitats": ["森林"], "reqLevel": 8, "score": 6, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an10", "no": 10, "image": "images/card/card_an10.png", "name": "ツキノワグマ", "subspecies": "ニホンツキノワグマ", "scientificName": "Ursus thibetanus", "taxon": "食肉目 クマ科", "redList": "要注目種", "habitats": ["森林"], "reqLevel": 8, "score": 6, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": "このカードを出したとき、捨てられたカードから１枚を選んで手札に加えてもよい。", "effect": {"kind": "trigger.onPlay", "action": "takeFromDiscard", "filter": {"any": true}, "count": 1, "optional": true}}, {"id": "an11", "no": 11, "image": "images/card/card_an11.png", "name": "ニホンカモシカ", "subspecies": null, "scientificName": "Capricornis crispus", "taxon": "偶蹄目 ウシ科", "redList": "絶滅寸前種", "habitats": ["森林"], "reqLevel": 10, "score": 8, "tags": ["哺乳類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": null, "effect": null}, {"id": "an12", "no": 12, "image": "images/card/card_an12.png", "name": "クマタカ", "subspecies": null, "scientificName": "Nisaetus nipalensis", "taxon": "タカ目 タカ科", "redList": "絶滅危惧種", "habitats": ["森林"], "reqLevel": 12, "score": 10, "tags": ["鳥類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": "自分のビオトープと相手のビオトープのどちらにも森林があるとき、この動物は評価点＋２。", "effect": {"kind": "static.scoreMod", "target": {"scope": "self"}, "delta": 2, "condition": {"type": "bothBiotopesHaveEnv", "env": "森林"}}}, {"id": "an13", "no": 13, "image": "images/card/card_an13.png", "name": "アライグマ", "subspecies": null, "scientificName": "Procyon lotor", "taxon": "食肉目 アライグマ科", "redList": null, "habitats": ["森林"], "reqLevel": 5, "score": -5, "tags": ["哺乳類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "この動物がいるビオトープには、森林に生息する【哺乳類】または【鳥類】を新しく出すことができない。", "effect": {"kind": "static.playRestriction", "scope": "sameBiotope", "forbid": {"habitat": "森林", "anyTag": ["哺乳類", "鳥類"]}, "appliesToExisting": false}}, {"id": "an14", "no": 14, "image": "images/card/card_an14.png", "name": "モンキチョウ", "subspecies": null, "scientificName": "Colias erate", "taxon": "チョウ目 シロチョウ科", "redList": null, "habitats": ["草原"], "reqLevel": 2, "score": 1, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an15", "no": 15, "image": "images/card/card_an15.png", "name": "ニホンノウサギ", "subspecies": "キュウシュウノウサギ", "scientificName": "Lepus brachyurus", "taxon": "兎形目 ウサギ科", "redList": null, "habitats": ["草原"], "reqLevel": 3, "score": 1, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an16", "no": 16, "image": "images/card/card_an16.png", "name": "ニホントカゲ", "subspecies": null, "scientificName": "Plestiodon japonicus", "taxon": "有鱗目 トカゲ科", "redList": null, "habitats": ["草原"], "reqLevel": 4, "score": 2, "tags": ["爬虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an17", "no": 17, "image": "images/card/card_an17.png", "name": "モズ", "subspecies": null, "scientificName": "Lanius bucephalus", "taxon": "スズメ目 モズ科", "redList": null, "habitats": ["草原"], "reqLevel": 6, "score": 3, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": "このカードを出したとき、手札に同じビオトープに出せる【昆虫類】があるなら、そのうち１枚を選んで追加で同じビオトープに出してもよい。", "effect": {"kind": "trigger.onPlay", "action": "playFromHand", "filter": {"anyTag": ["昆虫類"]}, "toBiotope": "same", "requireLegal": true, "optional": true}}, {"id": "an18", "no": 18, "image": "images/card/card_an18.png", "name": "ナミハンミョウ", "subspecies": null, "scientificName": "Sophiodela japonica", "taxon": "コウチュウ目 オサムシ科", "redList": null, "habitats": ["草原"], "reqLevel": 6, "score": 3, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": "このカードを出したとき、捨てられた環境カードから１枚選んで手札に加えてもよい。", "effect": {"kind": "trigger.onPlay", "action": "takeFromDiscard", "filter": {"cardType": "environment"}, "count": 1, "optional": true}}, {"id": "an19", "no": 19, "image": "images/card/card_an19.png", "name": "アカギツネ", "subspecies": "ホンドギツネ", "scientificName": "Vulpes vulpes", "taxon": "食肉目 イヌ科", "redList": "要注目種", "habitats": ["草原"], "reqLevel": 7, "score": 5, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": "同じビオトープにニホンノウサギがいるなら、この動物は評価点＋１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "self"}, "delta": 1, "condition": {"type": "animalInSameBiotope", "cardId": "an15"}}}, {"id": "an20", "no": 20, "image": "images/card/card_an20.png", "name": "オオバン", "subspecies": null, "scientificName": "Fulica atra", "taxon": "ツル目 クイナ科", "redList": null, "habitats": ["湖沼"], "reqLevel": 5, "score": 2, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": "同じビオトープに、この動物以外の湖沼に生息する動物がいないなら、この動物は評価点＋３。", "effect": {"kind": "static.scoreMod", "target": {"scope": "self"}, "delta": 3, "condition": {"type": "noOtherAnimalInSameBiotope", "habitat": "湖沼"}}}, {"id": "an21", "no": 21, "image": "images/card/card_an21.png", "name": "カイツブリ", "subspecies": null, "scientificName": "Tachybaptus ruficollis", "taxon": "カイツブリ目 カイツブリ科", "redList": "準絶滅危惧種", "habitats": ["湖沼"], "reqLevel": 6, "score": 4, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an22", "no": 22, "image": "images/card/card_an22.png", "name": "カネヒラ", "subspecies": null, "scientificName": "Acheilognathus rhombeus", "taxon": "コイ目 タナゴ科", "redList": "準絶滅危惧種", "habitats": ["湖沼"], "reqLevel": 8, "score": 6, "tags": ["魚類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an23", "no": 23, "image": "images/card/card_an23.png", "name": "オオクチバス", "subspecies": null, "scientificName": "Micropterus nigricans", "taxon": "サンフィッシュ目 サンフィッシュ科", "redList": null, "habitats": ["湖沼"], "reqLevel": 5, "score": -5, "tags": ["魚類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "同じビオトープにいる、この動物以外の湖沼に生息する動物は、評価点－１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "sameBiotope", "exceptSelf": true, "habitat": "湖沼"}, "delta": -1}}, {"id": "an24", "no": 24, "image": "images/card/card_an24.png", "name": "ニホンイシガメ", "subspecies": null, "scientificName": "Mauremys japonica", "taxon": "カメ目 イシガメ科", "redList": "要注目種", "habitats": ["河川"], "reqLevel": 8, "score": 6, "tags": ["爬虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an25", "no": 25, "image": "images/card/card_an25.png", "name": "ヌートリア", "subspecies": null, "scientificName": "Myocastor coypus", "taxon": "齧歯目 ヌートリア科", "redList": null, "habitats": ["河川"], "reqLevel": 5, "score": -5, "tags": ["哺乳類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "この動物がいるビオトープは、環境レベルが１下がる。この効果で下がった環境レベルは、このカードには影響しない。", "effect": {"kind": "static.envLevelMod", "scope": "sameBiotope", "delta": -1, "excludeSelf": true}}, {"id": "an26", "no": 26, "image": "images/card/card_an26.png", "name": "アカハライモリ", "subspecies": null, "scientificName": "Cynops pyrrhogaster", "taxon": "有尾目 イモリ科", "redList": "要注目種", "habitats": ["湿地"], "reqLevel": 7, "score": 6, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an27", "no": 27, "image": "images/card/card_an27.png", "name": "コウノトリ", "subspecies": null, "scientificName": "Ciconia boyciana", "taxon": "コウノトリ目 コウノトリ科", "redList": "絶滅危惧種", "habitats": ["湿地"], "reqLevel": 10, "score": 7, "tags": ["鳥類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": "同じビオトープにいる、この動物以外の【絶滅危惧種】は、評価点＋１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "sameBiotope", "exceptSelf": true, "anyTag": ["絶滅危惧種"]}, "delta": 1}}, {"id": "an28", "no": 28, "image": "images/card/card_an28.png", "name": "クロゲンゴロウ", "subspecies": null, "scientificName": "Cybister brevis", "taxon": "コウチュウ目 ゲンゴロウ科", "redList": "準絶滅危惧種", "habitats": ["湿地"], "reqLevel": 10, "score": 7, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": "同じビオトープにいる、この動物以外の湿地に生息する動物は、評価点＋１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "sameBiotope", "exceptSelf": true, "habitat": "湿地"}, "delta": 1}}, {"id": "an29", "no": 29, "image": "images/card/card_an29.png", "name": "カジカガエル", "subspecies": null, "scientificName": "Buergeria buergeri", "taxon": "無尾目 アオガエル科", "redList": "準絶滅危惧種", "habitats": ["渓流"], "reqLevel": 6, "score": 5, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an30", "no": 30, "image": "images/card/card_an30.png", "name": "ヤマセミ", "subspecies": null, "scientificName": "Megaceryle lugubris", "taxon": "ブッポウソウ目 カワセミ科", "redList": "絶滅危惧種", "habitats": ["渓流"], "reqLevel": 9, "score": 8, "tags": ["鳥類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": null, "effect": null}, {"id": "an31", "no": 31, "image": "images/card/card_an31.png", "name": "オオサンショウウオ", "subspecies": null, "scientificName": "Andrias japonicus", "taxon": "有尾目 オオサンショウウオ科", "redList": "絶滅危惧種", "habitats": ["渓流"], "reqLevel": 9, "score": 7, "tags": ["両生類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": "このカードを出したとき、渓流に生息する動物カードが捨てられているなら、そのうち１枚を選んで手札に加えてもよい。", "effect": {"kind": "trigger.onPlay", "action": "takeFromDiscard", "filter": {"cardType": "animal", "habitat": "渓流"}, "count": 1, "optional": true}}, {"id": "an32", "no": 32, "image": "images/card/card_an32.png", "name": "チュウゴクオオサンショウウオ", "subspecies": null, "scientificName": "Andrias davidianus", "taxon": "有尾目 オオサンショウウオ科", "redList": null, "habitats": ["渓流"], "reqLevel": 5, "score": -5, "tags": ["両生類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "同じビオトープにいるオオサンショウウオは、評価点－７。", "effect": {"kind": "static.scoreMod", "target": {"scope": "sameBiotope", "cardId": "an31"}, "delta": -7}}, {"id": "an33", "no": 33, "image": "images/card/card_an33.png", "name": "ヤマカガシ", "subspecies": null, "scientificName": "Rhabdophis tigrinus", "taxon": "有鱗目 ナミヘビ科", "redList": "要注目種", "habitats": ["森林", "湿地"], "reqLevel": 6, "score": 4, "tags": ["爬虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an34", "no": 34, "image": "images/card/card_an34.png", "name": "ニホンアカガエル", "subspecies": null, "scientificName": "Rana japonica", "taxon": "無尾目 アカガエル科", "redList": "要注目種", "habitats": ["森林", "湿地"], "reqLevel": 9, "score": 7, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": "ビオトープに森林と湿地がどちらもあるとき、このカードの必要環境レベルは５になる。", "effect": {"kind": "static.reqLevelOverride", "value": 5, "condition": {"type": "biotopeHasAllEnv", "envs": ["森林", "湿地"]}}}, {"id": "an35", "no": 35, "image": "images/card/card_an35.png", "name": "タゴガエル", "subspecies": null, "scientificName": "Rana tagoi", "taxon": "無尾目 アカガエル科", "redList": null, "habitats": ["森林", "渓流"], "reqLevel": 5, "score": 3, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an36", "no": 36, "image": "images/card/card_an36.png", "name": "ヒダサンショウウオ", "subspecies": null, "scientificName": "Hynobius kimurae", "taxon": "有尾目 サンショウウオ科", "redList": "絶滅危惧種", "habitats": ["森林", "渓流"], "reqLevel": 11, "score": 9, "tags": ["両生類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": null, "effect": null}, {"id": "an37", "no": 37, "image": "images/card/card_an37.png", "name": "カルガモ", "subspecies": null, "scientificName": "Anas zonorhyncha", "taxon": "カモ目 カモ科", "redList": null, "habitats": ["湖沼", "河川"], "reqLevel": 3, "score": 1, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an38", "no": 38, "image": "images/card/card_an38.png", "name": "ドジョウ", "subspecies": null, "scientificName": "Misgurnus anguillicaudatus", "taxon": "コイ目 ドジョウ科", "redList": "要注目種", "habitats": ["湖沼", "河川"], "reqLevel": 3, "score": 1, "tags": ["魚類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an39", "no": 39, "image": "images/card/card_an39.png", "name": "カワセミ", "subspecies": null, "scientificName": "Alcedo atthis", "taxon": "ブッポウソウ目 カワセミ科", "redList": null, "habitats": ["湖沼", "河川"], "reqLevel": 5, "score": 2, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an40", "no": 40, "image": "images/card/card_an40.png", "name": "ショウジョウトンボ", "subspecies": null, "scientificName": "Crocothemis servilia", "taxon": "トンボ目 トンボ科", "redList": null, "habitats": ["湖沼", "湿地"], "reqLevel": 5, "score": 3, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an41", "no": 41, "image": "images/card/card_an41.png", "name": "ウシガエル", "subspecies": null, "scientificName": "Lithobates catesbeianus", "taxon": "無尾目 アカガエル科", "redList": null, "habitats": ["湖沼", "湿地"], "reqLevel": 5, "score": -5, "tags": ["両生類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "このカードを出したとき、同じビオトープにこの動物以外の湿地に生息する【両生類】または【昆虫類】がいるなら、そのうち１枚を選んで捨てる。", "effect": {"kind": "trigger.onPlay", "action": "discardAnimal", "scope": "sameBiotope", "exceptSelf": true, "filter": {"habitat": "湿地", "anyTag": ["両生類", "昆虫類"]}, "count": 1, "optional": false, "chooser": "activePlayer"}}, {"id": "an42", "no": 42, "image": "images/card/card_an42.png", "name": "アメリカザリガニ", "subspecies": null, "scientificName": "Procambarus clarkii", "taxon": "十脚目 アメリカザリガニ科", "redList": null, "habitats": ["湖沼", "湿地"], "reqLevel": 5, "score": -5, "tags": ["甲殻類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "このカードを出したとき、手札にウシガエルがあるなら、追加で同じビオトープに出してもよい。", "effect": {"kind": "trigger.onPlay", "action": "playFromHand", "cardId": "an41", "toBiotope": "same", "requireLegal": true, "optional": true}}, {"id": "an43", "no": 43, "image": "images/card/card_an43.png", "name": "アオサギ", "subspecies": null, "scientificName": "Ardea cinerea", "taxon": "ペリカン目 サギ科", "redList": null, "habitats": ["河川", "湿地"], "reqLevel": 2, "score": 1, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": "このカードを出したとき、対戦相手の手札を見てもよい。", "effect": {"kind": "trigger.onPlay", "action": "revealOpponentHand", "optional": true}}, {"id": "an44", "no": 44, "image": "images/card/card_an44.png", "name": "サワガニ", "subspecies": null, "scientificName": "Geothelphusa dehaani", "taxon": "十脚目 サワガニ科", "redList": null, "habitats": ["河川", "渓流"], "reqLevel": 4, "score": 1, "tags": ["甲殻類"], "invasive": false, "endangered": false, "effectText": "この動物がいるビオトープは、環境レベルが１上がる。この効果で上がった環境レベルは、このカードには影響しない。", "effect": {"kind": "static.envLevelMod", "scope": "sameBiotope", "delta": 1, "excludeSelf": true}}], "imageExt": ".png", "cardImageDir": "images/card", "cardBack": "images/card/card_ura.png", "titleLogo": "images/title_logo.png", "cardSize": {"w": 500, "h": 750}};
+/* ============================================================
+   ゲームエンジン（純粋部分）
+   ・DOM、乱数、時刻に一切触れない
+   ・状態は applyCommand だけが変える
+   ・オンライン対戦では「シード＋コマンド列」だけを共有すればよい
+   ============================================================ */
+
+let SIM = 0;                                // 0より大きいあいだは試行中（検算と警告を止める）
+const A = {}, E = {};                       // カード辞書
+CARDS.animals.forEach(c => A[c.id] = c);
+CARDS.environments.forEach(c => E[c.id] = c);
+const isEnv = id => id[0] === 'e';
+const card = id => isEnv(id) ? E[id] : A[id];
+const ME = 0, OP = 1;
+const who = p => p === ME ? 'あなた' : '相手';
+const bioName = p => p === ME ? 'あなたのビオトープ' : '相手のビオトープ';
+
+/* ---------- シード付き乱数（両者で同じ並びを再現するため） ---------- */
+function rng(seed) {
+  let t = seed >>> 0;
+  return () => {
+    t = (t + 0x6D2B79F5) >>> 0;
+    let x = Math.imul(t ^ (t >>> 15), 1 | t);
+    x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function shuffle(arr, rand) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* ---------- 状態の生成 ---------- */
+function newGame(seed, first, cpuLevel) {
+  const rand = rng(seed);
+  const all = CARDS.environments.map(c => c.id).concat(CARDS.animals.map(c => c.id));
+  const deck = shuffle(all, rand);
+  const removed = deck.splice(0, 8);              // 表を見ずに8枚取り除く
+  const hands = [[], []];
+  for (let i = 0; i < 5; i++) { hands[first].push(deck.pop()); hands[1 - first].push(deck.pop()); }
+  return {
+    seed, first, cpuLevel,
+    deck, removed, discard: [],
+    hands, env: [[], []], animals: [[], []],
+    cur: first, turnNo: [0, 0], phase: 'turnStart',
+    used: [], drawn: 0,
+    deckEmptyBy: null, isLastTurn: false, over: false, result: null,
+    stats: { drawn: [0, 0], lost: [0, 0] },
+    fx: [],                                   // 発動中の常時効果のキー
+    pending: null,                            // 解決待ちの誘発効果
+
+    log: [], seq: 0
+  };
+}
+
+/* ---------- 参照系 ---------- */
+function envTypes(s, p) { return new Set(s.env[p].map(id => E[id].type)); }
+function envBase(s, p) { return s.env[p].reduce((n, id) => n + E[id].level, 0); }
+
+/* 環境レベル。exceptId を指定すると、そのカード自身の修整を除いた値を返す。
+   サワガニ(+1)・ヌートリア(-1)は自分自身の判定には影響しないため。 */
+function envLevel(s, p, exceptId) {
+  let n = envBase(s, p);
+  s.animals[p].forEach(id => {
+    if (id === exceptId) return;
+    const f = A[id].effect;
+    if (f && f.kind === 'static.envLevelMod') n += f.delta;
+  });
+  return n;
+}
+
+/* 必要環境レベル。ニホンアカガエルは森林と湿地が揃うと5になる。 */
+function reqLevel(s, p, id) {
+  const f = A[id].effect;
+  if (f && f.kind === 'static.reqLevelOverride'
+      && f.condition.envs.every(t => envTypes(s, p).has(t))) return f.value;
+  return A[id].reqLevel;
+}
+
+/* 常時効果を織り込んだ評価点。盤面から毎回計算する純粋な関数。 */
+function scoreOf(s, p, id) {
+  let n = A[id].score;
+  s.animals[p].forEach(src => {
+    const f = A[src].effect;
+    if (!f || f.kind !== 'static.scoreMod') return;
+    if (!condOK(s, p, src, f.condition)) return;
+    const t = f.target;
+    if (t.scope === 'self') { if (src === id) n += f.delta; return; }
+    if (src === id && t.exceptSelf) return;
+    if (t.cardId && t.cardId !== id) return;
+    if (t.habitat && !A[id].habitats.includes(t.habitat)) return;
+    if (t.anyTag && !t.anyTag.some(g => A[id].tags.includes(g))) return;
+    n += f.delta;
+  });
+  // クマタカのように相手のビオトープを参照する効果
+  const own = A[id].effect;
+  if (own && own.kind === 'static.scoreMod' && own.target.scope === 'self'
+      && own.condition && own.condition.type === 'bothBiotopesHaveEnv') { /* condOK 済み */ }
+  return n;
+}
+function condOK(s, p, src, c) {
+  if (!c) return true;
+  switch (c.type) {
+    case 'biotopeHasEnv':      return envTypes(s, p).has(c.env);
+    case 'biotopeHasAllEnv':   return c.envs.every(t => envTypes(s, p).has(t));
+    case 'bothBiotopesHaveEnv':return envTypes(s, ME).has(c.env) && envTypes(s, OP).has(c.env);
+    case 'animalInSameBiotope':return s.animals[p].includes(c.cardId);
+    case 'noOtherAnimalInSameBiotope':
+      return !s.animals[p].some(x => x !== src && A[x].habitats.includes(c.habitat));
+    default: return true;
+  }
+}
+function totalScore(s, p) { return s.animals[p].reduce((n, id) => n + scoreOf(s, p, id), 0); }
+function habitatOK(s, p, id) { const t = envTypes(s, p); return A[id].habitats.some(h => t.has(h)); }
+function levelOK(s, p, id) { return envLevel(s, p, id) >= reqLevel(s, p, id); }
+function alive(s, p, id) { return habitatOK(s, p, id) && levelOK(s, p, id); }
+
+/* アライグマ：そのビオトープに森林の哺乳類・鳥類を新しく出せない（既存は残る） */
+function blockedBy(s, p, id) {
+  for (const src of s.animals[p]) {
+    const f = A[src].effect;
+    if (!f || f.kind !== 'static.playRestriction') continue;
+    const fb = f.forbid;
+    if (A[id].habitats.includes(fb.habitat) && fb.anyTag.some(g => A[id].tags.includes(g)))
+      return A[src].name;
+  }
+  return null;
+}
+
+/* 動物を出せるか。出せないときは理由も返す */
+function canPlayAnimal(s, p, id) {
+  if (s.pending) return { ok: false, why: '※効果の解決中です' };
+  if (s.used.includes('playAni')) return { ok: false, why: '※動物カードは1枚しか出せない' };
+  if (s.used.length >= 2) return { ok: false, why: '※このターンの行動は終わりです' };
+  const blocker = blockedBy(s, p, id);
+  if (blocker) return { ok: false, why: `※${blocker}の効果` };   // レベル不足より優先
+  const h = habitatOK(s, p, id), l = levelOK(s, p, id);
+  if (h && l) return { ok: true, why: '' };
+  const r = [];
+  if (!h) r.push('生息環境がない');
+  if (!l) r.push('環境レベルが足りない');
+  return { ok: false, why: '※' + r.join('、') };
+}
+function canPlayEnv(s, id) {
+  if (s.pending) return { ok: false, why: '※効果の解決中です' };
+  if (s.used.includes('playEnv')) return { ok: false, why: '※環境カードは1枚しか出せない' };
+  if (s.used.length >= 2) return { ok: false, why: '※このターンの行動は終わりです' };
+  if (s.env[s.cur].length >= 5) return { ok: false, why: '※環境カードは5枚まで' };
+  return { ok: true, why: '' };
+}
+function canDiscardEnv(s) {
+  if (s.pending) return { ok: false, why: '※効果の解決中です' };
+  if (s.used.includes('discardEnv')) return { ok: false, why: '※環境カードは1枚しか捨てられない' };
+  if (s.used.length >= 2) return { ok: false, why: '※このターンの行動は終わりです' };
+  return { ok: true, why: '※環境レベルが下がる' };
+}
+
+/* ---------- ログ ---------- */
+function logTurn(s) { s.log.push({ k: 'turn', no: s.turnNo[s.cur], text: `${who(s.cur)}のターン（${s.turnNo[s.cur]}ターン目）` }); }
+function logLine(s, text, cls) { s.log.push({ k: 'line', text, cls: cls || '', at: s.log.length }); }
+
+/* ---------- 常時効果の発動・終了を記録する ---------- */
+function fxText(s, p, src) {
+  const bio = bioName(p), f = A[src].effect, n = A[src].name;
+  switch (src) {
+    case 'an01': return `${bio}にいる森林の動物の評価点 −1`;
+    case 'an23': return `${bio}にいる湖沼の動物の評価点 −1`;
+    case 'an28': return `${bio}にいる湿地の動物の評価点 +1`;
+    case 'an27': return `${bio}にいる絶滅危惧種の評価点 +1`;
+    case 'an32': return `${bio}にいるオオサンショウウオの評価点 −7`;
+    case 'an07': return `${bio}に湿地があるためニホンヒキガエルの評価点 +1`;
+    case 'an12': return 'どちらのビオトープにも森林があるためクマタカの評価点 +2';
+    case 'an19': return `${bio}にニホンノウサギがいるためアカギツネの評価点 +1`;
+    case 'an20': return `${bio}に湖沼の動物が他にいないためオオバンの評価点 +3`;
+    case 'an13': return `${bio}に森林の哺乳類・鳥類を出せなくなった`;
+    case 'an34': return `${bio}に森林と湿地があるためニホンアカガエルは必要環境レベル 5 になった`;
+    case 'an44': return `${bio}の環境レベル +1（${envBase(s, p)} → ${envLevel(s, p, null)}）`;
+    case 'an25': return `${bio}の環境レベル −1（${envBase(s, p)} → ${envLevel(s, p, null)}）`;
+    default: return `${n}の効果`;
+  }
+}
+/* いま発動している効果の一覧。条件付きのものは条件を満たすときだけ数える。 */
+function activeFx(s) {
+  const out = [];
+  for (const p of [ME, OP]) s.animals[p].forEach(id => {
+    const f = A[id].effect;
+    if (!f || !f.kind.startsWith('static')) return;
+    if (f.kind === 'static.scoreMod' && !condOK(s, p, id, f.condition)) return;
+    if (id === 'an32' && !s.animals[p].includes('an31')) return;   // 対象がいなければ働かない
+    if (f.kind === 'static.reqLevelOverride'
+        && !f.condition.envs.every(t => envTypes(s, p).has(t))) return;
+    out.push(`${p}:${id}`);
+  });
+  return out;
+}
+/* 盤面の変化のたびに、効果の発動と終了を記録する。
+   再判定の前に一度（環境の変化が原因のもの）、
+   後にもう一度（脱落が原因のもの）呼ぶことで、因果の順に並ぶ。 */
+function syncFx(s) {
+  const now = activeFx(s), before = s.fx;
+  before.filter(k => !now.includes(k)).forEach(k =>
+    logLine(s, `${A[k.split(':')[1]].name}の効果がなくなった`, 'eff'));
+  now.filter(k => !before.includes(k)).forEach(k => {
+    const [p, id] = k.split(':');
+    logLine(s, fxText(s, +p, id), 'eff');
+  });
+  s.fx = now;
+}
+
+/* ---------- 再判定エンジン ----------
+   盤面が変わるたび、条件を失った動物を一斉に捨てる。
+   脱落がなくなるまで繰り返す（Phase 2 の連鎖に備えた構造）。 */
+function revalidate(s, out) {
+  let guard = 0;
+  for (;;) {
+    if (++guard > 50) { dbg('再判定が収束しません'); break; }
+    const doomed = [];
+    for (const p of [ME, OP]) {
+      s.animals[p].forEach(id => {
+        if (!alive(s, p, id)) doomed.push({ p, id, why: !habitatOK(s, p, id) ? '生息環境の消失' : '環境レベルの不足' });
+      });
+    }
+    if (!doomed.length) return;
+    doomed.forEach(d => {
+      s.animals[d.p] = s.animals[d.p].filter(x => x !== d.id);
+      s.discard.push(d.id);
+      s.stats.lost[d.p]++;
+      logLine(s, `${bioName(d.p)}から${A[d.id].name}がいなくなった（${d.why}）`, 'lost');
+      out.removed.push({ p: d.p, id: d.id });
+    });
+    syncFx(s);      // 一段階ごとに効果の増減を記録し、連鎖の因果を追えるようにする
+  }
+}
+
+/* ---------- 誘発効果（出したときの効果） ---------- */
+/* 行動回数に関係なく、条件だけで置けるか */
+function canPlace(s, p, id) {
+  return habitatOK(s, p, id) && levelOK(s, p, id) && !blockedBy(s, p, id);
+}
+const FX_SUB = {
+  an05: '手札をすべて捨てる',
+  an43: '相手の手札を見る',
+  an08: '同じビオトープに追加でアカハライモリを出す',
+  an42: '同じビオトープに追加でウシガエルを出す',
+  an17: '同じビオトープに追加で【昆虫類】を出す',
+  an10: '捨てられたカードを手札に加える',
+  an18: '捨てられた環境カードを手札に加える',
+  an31: '捨てられた渓流の動物カードを手札に加える',
+  an41: '同じビオトープにいる湿地の【両生類】【昆虫類】を捨てる',
+};
+/* src を p のビオトープへ by が出したとき、解決待ちが生じるかを返す */
+function triggerFor(s, id, p, by) {
+  const f = A[id].effect;
+  if (!f || f.kind !== 'trigger.onPlay') return null;
+  const mk = o => Object.assign({ src: id, p, by, options: [], optional: true, auto: false }, o);
+  switch (id) {
+    case 'an05':                                   // オオスズメバチ
+      if (p === by || !s.hands[p].length) return null;
+      return mk({ kind: 'confirm', act: 'discardHand', victim: p, auto: true, optional: false });
+    case 'an43': {                                 // アオサギ（見てもよい）
+      const opp = 1 - by;
+      if (!s.hands[opp].length) return null;
+      return mk({ kind: 'reveal', act: 'reveal', victim: opp, options: ['reveal'] });
+    }
+    case 'an08':                                   // モリアオガエル
+      if (!envTypes(s, p).has('湿地')) return null;
+      if (!s.hands[by].includes('an26') || !canPlace(s, p, 'an26')) return null;
+      return mk({ kind: 'fixedPlay', act: 'playFromHand', options: ['an26'] });
+    case 'an42':                                   // アメリカザリガニ
+      if (!s.hands[by].includes('an41') || !canPlace(s, p, 'an41')) return null;
+      return mk({ kind: 'fixedPlay', act: 'playFromHand', options: ['an41'] });
+    case 'an17': {                                 // モズ
+      const o = s.hands[by].filter(c => !isEnv(c) && A[c].tags.includes('昆虫類') && canPlace(s, p, c));
+      return o.length ? mk({ kind: 'pick', act: 'playFromHand', options: o }) : null;
+    }
+    case 'an10': {                                 // ツキノワグマ
+      const o = s.discard.slice();
+      return o.length ? mk({ kind: 'pick', act: 'takeFromDiscard', options: o }) : null;
+    }
+    case 'an18': {                                 // ナミハンミョウ
+      const o = s.discard.filter(isEnv);
+      return o.length ? mk({ kind: 'pick', act: 'takeFromDiscard', options: o }) : null;
+    }
+    case 'an31': {                                 // オオサンショウウオ
+      const o = s.discard.filter(c => !isEnv(c) && A[c].habitats.includes('渓流'));
+      return o.length ? mk({ kind: 'pick', act: 'takeFromDiscard', options: o }) : null;
+    }
+    case 'an41': {                                 // ウシガエル（強制）
+      const o = s.animals[p].filter(c => c !== id && A[c].habitats.includes('湿地')
+        && ['両生類', '昆虫類'].some(g => A[c].tags.includes(g)));
+      return o.length ? mk({ kind: 'pick', act: 'discardAnimal', options: o, optional: false }) : null;
+    }
+  }
+  return null;
+}
+
+/* ---------- コマンド適用 ---------- */
+function applyCommand(s, cmd) {
+  const out = { added: [], removed: [], ok: true };
+  const p = s.cur;
+
+  switch (cmd.type) {
+    case 'startTurn': {
+      s.turnNo[p]++;
+      s.isLastTurn = s.deckEmptyBy !== null && s.deckEmptyBy !== p;
+      s.used = []; s.drawn = 0;
+      logTurn(s);
+      if (s.isLastTurn) logLine(s, '最後のターン（手札の補充なし）');
+      // 補充できない場合は補充フェーズを飛ばす
+      // （1ターン目は手札5枚／最後のターン／山札切れ）
+      const canDraw = !s.isLastTurn && s.deck.length > 0 && s.hands[p].length < 5;
+      s.phase = canDraw ? 'draw' : 'action';
+      break;
+    }
+    case 'draw': {
+      if (s.phase !== 'draw' || !s.deck.length || s.hands[p].length >= 5) return fail(out);
+      s.hands[p].push(s.deck.pop());
+      s.drawn++; s.stats.drawn[p]++;
+      break;
+    }
+    case 'endDraw': {
+      if (s.phase !== 'draw' || s.drawn < 1) return fail(out);
+      logLine(s, `山札から${s.drawn}枚引いた（手札${s.hands[p].length}枚）`);
+      if (!s.deck.length && s.deckEmptyBy === null) { s.deckEmptyBy = p; logLine(s, '山札がなくなった'); }
+      s.phase = 'action';
+      break;
+    }
+    case 'playEnv': {
+      if (s.pending) return fail(out);
+      if (s.phase !== 'action' || !canPlayEnv(s, cmd.card).ok) return fail(out);
+      if (!s.hands[p].includes(cmd.card) || !isEnv(cmd.card)) return fail(out);
+      const before = envLevel(s, p, null);
+      s.hands[p] = s.hands[p].filter(x => x !== cmd.card);
+      s.env[p].push(cmd.card);
+      s.used.push('playEnv');
+      out.added.push({ p, id: cmd.card });
+      logLine(s, `ビオトープに${E[cmd.card].type}ができた（環境レベル ${before} → ${envLevel(s, p, null)}）`);
+      syncFx(s); revalidate(s, out); syncFx(s);
+      break;
+    }
+    case 'discardEnv': {
+      if (s.pending) return fail(out);
+      if (s.phase !== 'action' || !canDiscardEnv(s).ok) return fail(out);
+      if (!s.env[p].includes(cmd.card)) return fail(out);
+      const before = envLevel(s, p, null);
+      s.env[p] = s.env[p].filter(x => x !== cmd.card);
+      s.discard.push(cmd.card);
+      s.used.push('discardEnv');
+      out.removed.push({ p, id: cmd.card });
+      logLine(s, `ビオトープから${E[cmd.card].type}が消えた（環境レベル ${before} → ${envLevel(s, p, null)}）`, 'lost');
+      syncFx(s); revalidate(s, out); syncFx(s);
+      break;
+    }
+    case 'playAni': {
+      if (s.pending) return fail(out);
+      const t = cmd.target;
+      if (s.phase !== 'action' || !canPlayAnimal(s, t, cmd.card).ok) return fail(out);
+      if (!s.hands[p].includes(cmd.card) || isEnv(cmd.card)) return fail(out);
+      s.hands[p] = s.hands[p].filter(x => x !== cmd.card);
+      s.animals[t].push(cmd.card);
+      s.used.push('playAni');
+      out.added.push({ p: t, id: cmd.card });
+      logLine(s, `${bioName(t)}で${A[cmd.card].name}を発見した（評価点 ${scoreOf(s, t, cmd.card)}）`);
+      syncFx(s); revalidate(s, out); syncFx(s);
+      s.pending = triggerFor(s, cmd.card, t, p);
+      break;
+    }
+    case 'endActions': {
+      if (s.pending) return fail(out);
+      if (s.phase !== 'action') return fail(out);
+      if (!s.used.length) logLine(s, '行動しなかった');
+      s.phase = 'tidy';
+      break;
+    }
+    case 'tidy': {
+      if (s.phase !== 'tidy') return fail(out);
+      if (s.isLastTurn) { finish(s); break; }      // 最後のターンは手札を整理しない
+      const list = cmd.cards || [];
+      if (s.hands[p].length - list.length > 4) return fail(out);
+      if (list.some(c => !s.hands[p].includes(c))) return fail(out);
+      list.forEach(c => { s.hands[p] = s.hands[p].filter(x => x !== c); s.discard.push(c); });
+      if (list.length) logLine(s, `手札を${list.length}枚捨てた`);
+      s.cur = 1 - p; s.phase = 'turnStart';
+      break;
+    }
+    case 'resolveFx': {
+      const pd = s.pending;
+      if (!pd) return fail(out);
+      const c = pd.auto ? null : (cmd.choice ?? null);
+      if (!pd.auto) {
+        if (c === null && !pd.optional) return fail(out);
+        if (c !== null && !pd.options.includes(c)) return fail(out);
+      }
+      s.pending = null;
+      if (!pd.auto && c === null) break;            // 実行しないときは記録も残さない
+
+      switch (pd.act) {
+        case 'discardHand': {
+          const n = s.hands[pd.victim].length;
+          s.discard.push(...s.hands[pd.victim]);
+          s.hands[pd.victim] = [];
+          logLine(s, `${who(pd.victim)}は手札をすべて捨てた（${n}枚）`, 'eff');
+          break;
+        }
+        case 'reveal':
+          logLine(s, `${who(pd.victim)}の手札を見た`, 'eff');
+          break;
+        case 'playFromHand': {
+          s.hands[pd.by] = s.hands[pd.by].filter(x => x !== c);
+          s.animals[pd.p].push(c);
+          out.added.push({ p: pd.p, id: c });
+          logLine(s, `さらに${A[c].name}も発見した`, 'eff');
+          break;
+        }
+        case 'takeFromDiscard': {
+          s.discard.splice(s.discard.indexOf(c), 1);
+          s.hands[pd.by].push(c);
+          logLine(s, `${isEnv(c) ? E[c].type : A[c].name}を手札に加えた`, 'eff');
+          break;
+        }
+        case 'discardAnimal': {
+          s.animals[pd.p] = s.animals[pd.p].filter(x => x !== c);
+          s.discard.push(c);
+          s.stats.lost[pd.p]++;
+          out.removed.push({ p: pd.p, id: c });
+          logLine(s, `${bioName(pd.p)}から${A[c].name}がいなくなった（ウシガエルの影響）`, 'lost');
+          break;
+        }
+      }
+      syncFx(s); revalidate(s, out); syncFx(s);
+      // 追加で出したカードにも効果があれば、続けて解決する
+      if (pd.act === 'playFromHand' && s.animals[pd.p].includes(c))
+        s.pending = triggerFor(s, c, pd.p, pd.by);
+      break;
+    }
+    case 'resign': {
+      finish(s, p);
+      break;
+    }
+    default: return fail(out);
+  }
+  s.seq++;
+  checkInvariants(s);
+  return out;
+}
+function fail(out) { out.ok = false; if (!SIM) dbg('不正なコマンドを拒否しました'); return out; }
+
+/* ---------- 終了処理 ---------- */
+function finish(s, resigned) {
+  s.over = true; s.phase = 'end';
+  const sc = [totalScore(s, ME), totalScore(s, OP)];
+  const n = [s.animals[ME].length, s.animals[OP].length];
+  let win;
+  if (resigned !== undefined) win = 1 - resigned;
+  else if (sc[ME] !== sc[OP]) win = sc[ME] > sc[OP] ? ME : OP;
+  else if (n[ME] !== n[OP]) win = n[ME] > n[OP] ? ME : OP;
+  else win = null;
+  s.result = {
+    win, resigned,
+    score: sc, animals: n,
+    envTypes: [envTypes(s, ME).size, envTypes(s, OP).size],
+    endangered: [cnt(s, ME, 'endangered'), cnt(s, OP, 'endangered')],
+    invasive: [cnt(s, ME, 'invasive'), cnt(s, OP, 'invasive')],
+    lost: s.stats.lost.slice(), drawn: s.stats.drawn.slice(),
+    turns: s.turnNo.slice()
+  };
+  const head = win === null ? '引き分け' : (win === ME ? 'あなたの勝ち' : 'あなたの負け');
+  logLine(s, `ゲーム終了（${head}）`);
+}
+function cnt(s, p, key) { return s.animals[p].filter(id => A[id][key]).length; }
+
+/* ---------- 合法手の列挙（CPU と UI が共用） ---------- */
+function legalMoves(s) {
+  const p = s.cur, out = [];
+  s.hands[p].forEach(id => {
+    if (isEnv(id)) { if (canPlayEnv(s, id).ok) out.push({ type: 'playEnv', card: id }); }
+    else [ME, OP].forEach(t => { if (canPlayAnimal(s, t, id).ok) out.push({ type: 'playAni', card: id, target: t }); });
+  });
+  if (canDiscardEnv(s).ok) s.env[p].forEach(id => out.push({ type: 'discardEnv', card: id }));
+  return out;
+}
+
+/* ---------- 不変条件の検算（読み取り専用） ---------- */
+function checkInvariants(s) {
+  if (SIM) return;                 // 試行中の盤面は検算しない
+  const total = s.removed.length + s.deck.length + s.discard.length
+    + s.hands[0].length + s.hands[1].length
+    + s.env[0].length + s.env[1].length
+    + s.animals[0].length + s.animals[1].length;
+  if (total !== 80) dbg(`カード総数が ${total} 枚です（80枚のはず）`);
+  if (s.env[0].length > 5 || s.env[1].length > 5) dbg('環境カードが5枚を超えています');
+  if (s.hands[0].length > 5 || s.hands[1].length > 5) dbg('手札が5枚を超えています');
+  if (s.used.length > 2) dbg('行動が2回を超えています');
+  if (s.pending && s.phase !== 'action') dbg('行動フェーズ外で効果の解決待ちになっています');
+  if (s.pending && !s.pending.auto && !s.pending.options.length) dbg('選択肢のない解決待ちが生じています');
+  const seen = new Set(), all = [].concat(s.removed, s.deck, s.discard, s.hands[0], s.hands[1],
+    s.env[0], s.env[1], s.animals[0], s.animals[1]);
+  all.forEach(id => { if (seen.has(id)) dbg(`カード ${id} が重複しています`); seen.add(id); });
+}
+function stateHash(s) {
+  const key = JSON.stringify([s.cur, s.phase, s.used, s.deck.length,
+    s.hands[0], s.hands[1], s.env[0], s.env[1], s.animals[0], s.animals[1], s.discard, s.fx,
+    s.pending && [s.pending.src, s.pending.p, s.pending.act, s.pending.options]]);
+  let h = 5381;
+  for (let i = 0; i < key.length; i++) h = ((h << 5) + h + key.charCodeAt(i)) >>> 0;
+  return h.toString(16).padStart(8, '0');
+}
+
+/* ============================================================
+   CPUの思考
+   ・状態を書き換えない。候補手を複製した盤面で試して選ぶだけ
+   ・乱数はシードから引くので、同じ局面では同じ手を選ぶ
+   ============================================================ */
+
+function cloneState(s) {
+  const c = JSON.parse(JSON.stringify(s));
+  c.log = [];
+  return c;
+}
+
+/* ---------- 小道具 ---------- */
+const isInv = id => !isEnv(id) && A[id].invasive;
+const SHIKA = 'an01', HORNET = 'an05', RACCOON = 'an13';
+
+function envKinds(s, p) { return envTypes(s, p).size; }
+function sameTypeCount(s, p, t) { return s.env[p].filter(i => E[i].type === t).length; }
+
+/* 手札の動物が出せるまでの遠さ。小さいほど早く出せる */
+function distance(s, p, id) {
+  if (isEnv(id)) return 0;
+  const far = Math.max(0, reqLevel(s, p, id) - envLevel(s, p, id));
+  return far + (habitatOK(s, p, id) ? 0 : 6);
+}
+
+/* 残りターン数の見積り（山札が尽きるまで＋最後のターン） */
+function turnsLeft(s) {
+  if (s.deckEmptyBy !== null) return 1;
+  return Math.max(1, Math.ceil(s.deck.length / 2) + 1);
+}
+
+/* カードに書かれたままの評価点。初心者と中級者は効果を考慮しない */
+function rawTotal(s, p) { return s.animals[p].reduce((n, id) => n + A[id].score, 0); }
+
+/* 相手のビオトープにいる特定外来生物の評価点合計（押し付けた成果） */
+function dumped(s, p) {
+  return s.animals[1 - p].filter(isInv).reduce((n, id) => n + A[id].score, 0);
+}
+
+/* 環境を1枚失ったときに消える評価点の見込み（脆さ） */
+function fragility(s, p) {
+  const lv = envLevel(s, p, null);
+  const maxCard = s.env[p].reduce((m, i) => Math.max(m, E[i].level), 0);
+  return s.animals[p]
+    .filter(id => scoreOf(s, p, id) > 0 && reqLevel(s, p, id) > lv - maxCard)
+    .reduce((n, id) => n + scoreOf(s, p, id), 0);
+}
+
+/* 手札から今後出せそうな動物の見込み点（残りターン数で頭打ち） */
+function handPotential(s, p) {
+  const t = turnsLeft(s);
+  const v = s.hands[p].filter(id => !isEnv(id) && canPlace(s, p, id))
+    .map(id => scoreOf(s, p, id)).filter(x => x > 0).sort((a, b) => b - a);
+  return v.slice(0, t).reduce((n, x) => n + x, 0);
+}
+
+/* アライグマの封じ込めの価値。
+   相手のビオトープにアライグマがいるとき、相手が今後出せなくなる
+   森林の哺乳類・鳥類のうち、まだ場にも捨て札にも出ていないものを見積もる。 */
+function raccoonValue(s, p) {
+  const op = 1 - p;
+  if (!s.animals[op].includes(RACCOON)) return 0;
+  const seen = new Set([].concat(s.discard, s.animals[0], s.animals[1]));
+  const lv = envLevel(s, op, null), kinds = envTypes(s, op);
+  if (!kinds.has('森林')) return 0;                       // 森林がなければ元々出せない
+  let v = 0;
+  for (const a of CARDS.animals) {
+    if (a.id === RACCOON || a.score <= 0) continue;
+    if (!a.habitats.includes('森林')) continue;
+    if (!['哺乳類', '鳥類'].some(g => a.tags.includes(g))) continue;
+    if (seen.has(a.id)) continue;                         // すでに出ている・捨てられている
+    // 相手の環境レベルで届く見込みがあるものほど重く見る
+    const gap = a.reqLevel - lv;
+    const w = gap <= 0 ? 1 : gap <= 3 ? 0.6 : gap <= 6 ? 0.25 : 0.05;
+    v += a.score * w;
+  }
+  return v;
+}
+
+/* ---------- 評価関数 ---------- */
+function evalFor(s, p, lv) {
+  if (lv === 1) {
+    // 初心者：効果を考えず、相手の盤面も見ない。押し付けた外来種だけ成果に数える
+    return rawTotal(s, p) - dumped(s, p)
+      + envLevel(s, p, null) * 1.0 + envKinds(s, p) * 0.5;
+  }
+  if (lv === 2) {
+    // 中級者：効果は考えないが、評価点の差で判断する
+    return (rawTotal(s, p) - rawTotal(s, 1 - p))
+      + envKinds(s, p) * 2.0 + envLevel(s, p, null) * 0.5;
+  }
+  // 上級者：効果込みの評価点に、将来性・脆さ・封じ込めの価値を加える
+  return (totalScore(s, p) - totalScore(s, 1 - p))
+    + envKinds(s, p) * 3.0 + envLevel(s, p, null) * 0.5
+    + handPotential(s, p) * 0.45
+    - fragility(s, p) * 0.25
+    + raccoonValue(s, p) * 0.15;   // 重みは実測で決めた。0.5では判断が歪んで弱くなる
+}
+
+/* ---------- 誘発効果の選択 ---------- */
+function pickFx(s, lv, rand) {
+  const pd = s.pending;
+  if (!pd || pd.auto) return null;
+  if (lv === 1) {                                  // 必ず実行、選択は無作為
+    return pd.options[Math.floor((rand ? rand() : 0.5) * pd.options.length)] || pd.options[0];
+  }
+  if (lv === 2 && pd.src === 'an18') {             // 中級者のナミハンミョウは無作為
+    return pd.options[Math.floor((rand ? rand() : 0.5) * pd.options.length)] || pd.options[0];
+  }
+  // 実際に試して最も良くなる選択を採る
+  let best = null, bv = -Infinity;
+  SIM++;
+  for (const c of pd.options) {
+    const ns = cloneState(s);
+    applyCommand(ns, { type: 'resolveFx', choice: c });
+    while (ns.pending) applyCommand(ns, { type: 'resolveFx', choice: ns.pending.options[0] ?? null });
+    let v = evalFor(ns, s.cur, lv);
+    if (lv === 3 && pd.src === 'an18' && isEnv(c) && !envTypes(s, s.cur).has(E[c].type)) v += 2;
+    if (v > bv) { bv = v; best = c; }
+  }
+  SIM--;
+  return best;
+}
+
+/* ---------- 候補手の絞り込み（レベルごとの決めごと） ---------- */
+function allowed(s, m, lv) {
+  const p = s.cur, last = s.isLastTurn;
+  if (m.type === 'playEnv') {
+    const t = E[m.card].type;
+    if (lv < 3 && sameTypeCount(s, p, t) >= 3) return false;   // 同じ環境は3枚まで
+    return true;
+  }
+  if (m.type === 'discardEnv') return true;                     // 妥当性は評価で判断する
+  const id = m.card, toOp = m.target !== p;
+  if (last) return !toOp || isInv(id);                          // 最後のターンは自分に出す
+  if (lv === 1) {
+    if (isInv(id)) return toOp;                                 // 外来種は必ず相手へ
+    if (toOp && id !== SHIKA && id !== HORNET) return false;    // ほかは相手に出さない
+    if (id === SHIKA) {
+      if (!toOp) return false;
+      const forest = s.animals[1 - p].some(x => A[x].habitats.includes('森林'));
+      const others = legalMoves(s).some(x => x.type === 'playAni' && x.card !== SHIKA);
+      return forest && !others;                                 // 他に手がないときだけ
+    }
+    if (id === HORNET) return toOp && hornetOK(s, p);
+  }
+  if (lv === 2) {
+    if (isInv(id)) return toOp;
+    if (id === HORNET) return toOp ? hornetOK(s, p) : !hornetOK(s, p);
+    if (toOp && id !== SHIKA) return false;
+  }
+  if (lv === 3 && id === HORNET && toOp) return hornetOK(s, p) || s.deck.length === 1;
+  return true;
+}
+/* アライグマとニホンジカを両方持っているとき。
+   アライグマを置くとニホンジカを出せなくなるので、
+   ニホンジカの損害がアライグマの取りこぼし分を上回るなら先にニホンジカを出す。 */
+function shikaBeforeRaccoon(s, rand) {
+  const p = s.cur, op = 1 - p;
+  if (s.used.includes('playAni') || s.used.length >= 2) return null;
+  if (!s.hands[p].includes(SHIKA) || !s.hands[p].includes(RACCOON)) return null;
+  const mv = { type: 'playAni', card: SHIKA, target: op };
+  if (!canPlayAnimal(s, op, SHIKA).ok || !canPlace(s, op, RACCOON)) return null;
+  const ns = tryMove(s, mv, 3, rand);
+  if (!ns) return null;
+  const gain = (totalScore(s, op) - totalScore(ns, op));        // 相手の損害
+  return gain > 7 ? mv : null;                                  // −7を超える働きがあるときだけ
+}
+
+/* 終盤の必勝形：山札が残り1枚のとき、相手の手札を空にしてから最後のターンを取る */
+function hornetEndgame(s) {
+  const p = s.cur;
+  if (s.deck.length !== 1) return null;
+  if (!s.hands[1 - p].length) return null;                        // 捨てさせる手札がない
+  if (!s.hands[p].includes(HORNET)) return null;
+  if (s.used.includes('playAni') || s.used.length >= 2) return null;
+  if (!canPlace(s, 1 - p, HORNET)) return null;                   // 相手のビオトープに出せない
+  if (totalScore(s, p) < totalScore(s, 1 - p) + A[HORNET].score) return null;  // 渡しても逆転されない
+  return { type: 'playAni', card: HORNET, target: 1 - p };
+}
+
+/* オオスズメバチ：相手の手札が3枚以上で、出しても評価点で負けないとき */
+function hornetOK(s, p) {
+  if (s.hands[1 - p].length < 3) return false;
+  return totalScore(s, p) >= totalScore(s, 1 - p) + A[HORNET].score;
+}
+
+/* ---------- 1手を試す ---------- */
+function tryMove(s, m, lv, rand) {
+  const ns = cloneState(s);
+  SIM++;
+  const out = applyCommand(ns, m);
+  if (!out.ok) { SIM--; return null; }
+  while (ns.pending) {
+    const c = pickFx(ns, lv, rand);
+    applyCommand(ns, { type: 'resolveFx', choice: c });
+  }
+  SIM--;
+  return ns;
+}
+
+/* ---------- 自分のターンの最善手を探す ---------- */
+function bestPlan(s, lv, remain, rand) {
+  const me = s.cur;
+  let best = { cmd: null, value: evalFor(s, me, lv), end: s };
+  for (const m of legalMoves(s)) {
+    if (!allowed(s, m, lv)) continue;
+    const ns = tryMove(s, m, lv, rand);
+    if (!ns) continue;
+    let v = evalFor(ns, me, lv), end = ns;
+    if (remain > 1 && !ns.over) {
+      const sub = bestPlan(ns, lv, remain - 1, rand);
+      if (sub.value > v) { v = sub.value; end = sub.end; }
+    }
+    if (v > best.value + 1e-9) best = { cmd: m, value: v, end };
+  }
+  return best;
+}
+
+/* 相手の最善の返しまで指したあとの、自分から見た評価 */
+/* 相手の最善の返しまで指したあとの、自分から見た評価。
+   これ以上深く読むと、引き運の予測が外れて逆に弱くなることを実測で確認している。 */
+function afterReply(end, me, lv, rand) {
+  const t = cloneState(end);
+  t.cur = 1 - me; t.used = []; t.pending = null;
+  SIM++;
+  const rep = bestPlan(t, lv, 2, rand);
+  SIM--;
+  return evalFor(rep.end, me, lv);
+}
+
+/* ---------- 外に出す口 ---------- */
+function cpuChoose(s, rand) {
+  const lv = s.cpuLevel || 1;
+  const remain = 2 - s.used.length;
+  if (remain <= 0) return null;
+  if (lv === 1 && rand() < 0.25) {              // 初心者はときどき考えずに打つ
+    const ms = legalMoves(s).filter(m => allowed(s, m, lv) && m.type !== 'discardEnv');
+    if (ms.length) return ms[Math.floor(rand() * ms.length)];
+  }
+  if (lv === 1) return bestPlan(s, 1, 1, rand).cmd;   // 初心者は1手ずつしか考えない
+  if (lv === 2) return bestPlan(s, 2, remain, rand).cmd;
+  const finish = hornetEndgame(s);                    // 上級者は終盤の必勝形を逃さない
+  if (finish) return finish;
+  const shika = shikaBeforeRaccoon(s, rand);         // ニホンジカが先に効くなら先に出す
+  if (shika) return shika;
+
+  // 上級者：有力な候補について、相手の返しまで読んでから決める
+  const me = s.cur;
+  const cands = [{ cmd: null, value: evalFor(s, me, lv), end: s }];
+  for (const m of legalMoves(s)) {
+    if (!allowed(s, m, lv)) continue;
+    const ns = tryMove(s, m, lv, rand);
+    if (!ns) continue;
+    let v = evalFor(ns, me, lv), end = ns;
+    if (remain > 1 && !ns.over) {
+      const sub = bestPlan(ns, lv, remain - 1, rand);
+      if (sub.value > v) { v = sub.value; end = sub.end; }
+    }
+    cands.push({ cmd: m, value: v, end });
+  }
+  cands.sort((a, b) => b.value - a.value);
+  let best = cands[0], bv = -Infinity;
+  for (const c of cands.slice(0, 6)) {
+    const v = c.end.over ? evalFor(c.end, me, lv) : afterReply(c.end, me, lv, rand);
+    if (v > bv) { bv = v; best = c; }
+  }
+  return best.cmd;
+}
+function cpuResolve(s, rand) { return pickFx(s, s.cpuLevel || 1, rand); }
+
+/* 何枚引くか */
+function cpuDraw(s) {
+  const p = s.cur, room = 5 - s.hands[p].length, lv = s.cpuLevel || 1;
+  if (room <= 0 || !s.deck.length) return 0;
+  if (lv === 3 && s.deck.length >= 2) {
+    const keepOne = s.deck.length - 1;           // 最後の1枚を相手に引かせる
+    if (keepOne >= 1 && keepOne <= room) return keepOne;
+  }
+  return Math.min(room, s.deck.length);
+}
+
+/* 手札整理 */
+function cpuTidy(s, rand) {
+  const p = s.cur, lv = s.cpuLevel || 1;
+  const hand = s.hands[p].slice();
+  if (s.isLastTurn || !hand.length) return [];
+  const envFull = s.env[p].length >= 5;
+  const out = [];
+
+  if (envFull) out.push(...hand.filter(isEnv));                     // 環境はもう出せない
+  const rest = hand.filter(c => !out.includes(c));
+
+  // 出しようのない外来種（相手のビオトープにも出せない）は抱えない
+  if (lv >= 2) out.push(...rest.filter(c => isInv(c) && !canPlace(s, 1 - p, c) && !canPlace(s, p, c)));
+  // ニホンジカは相手に森林の見込みがなければ持っていても仕方がない
+  const opFull = s.env[1 - p].length >= (lv === 3 ? 4 : 5);
+  if (opFull && !envTypes(s, 1 - p).has('森林')) out.push(...rest.filter(c => c === SHIKA));
+
+  // 勝っていて早く終わらせたいときは総入れ替え
+  const lead = totalScore(s, p) - totalScore(s, 1 - p);
+  const rush = envFull && ((lv === 2 && lead >= 15) || (lv === 3 && lead >= 10 && turnsLeft(s) > 2));
+  if (rush) return hand.slice();
+
+  const left = hand.filter(c => !out.includes(c));
+  const animals = left.filter(c => !isEnv(c));
+  const rank = lv === 1
+    ? (a, b) => scoreOf(s, p, a) - scoreOf(s, p, b)                  // 初心者は評価点の低い順
+    : (a, b) => (distance(s, p, b) - distance(s, p, a))              // 遠い順
+                || (scoreOf(s, p, a) - scoreOf(s, p, b));
+  animals.sort(rank);
+
+  const envInHand = hand.filter(isEnv).length;
+  const extra = envFull ? 0 : (envInHand >= 2 ? 1 : envInHand === 1 ? 2 : 0);
+  const need = Math.max(0, hand.length - out.length - 4);
+  out.push(...animals.slice(0, Math.max(need, extra)));
+
+  // 必ず4枚以下にする
+  let over = s.hands[p].length - out.length - 4;
+  for (const c of left) { if (over <= 0) break; if (!out.includes(c)) { out.push(c); over--; } }
+  return out;
+}
+
+/* ============================================================
+   効果音（Web Audio で合成。音声ファイルは使わない）
+   ============================================================ */
+let AC = null;
+let SFX_VOL = 0.6;
+let SFX_ON = true;
+const ac = () => (AC = AC || new (window.AudioContext || window.webkitAudioContext)());
+
+/* ホワイトノイズの音源 */
+function noise(dur) {
+  const c = ac(), n = Math.max(1, Math.floor(c.sampleRate * dur));
+  const buf = c.createBuffer(1, n, c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  return src;
+}
+function out(node, gain) {
+  const c = ac(), g = c.createGain();
+  g.gain.value = gain * SFX_VOL;
+  node.connect(g); g.connect(c.destination);
+  return g;
+}
+/* 音量の増減をまとめて書くための小道具 */
+function env(g, t0, pts) {
+  g.gain.cancelScheduledValues(t0);
+  g.gain.setValueAtTime(pts[0][1], t0 + pts[0][0]);
+  for (let i = 1; i < pts.length; i++)
+    g.gain.linearRampToValueAtTime(pts[i][1], t0 + pts[i][0]);
+}
+
+const SFX = {
+  /* 環境タイルが出る：ゴゴゴゴゴッ（大きなものが動く）
+     小型スピーカーでも鳴るよう、うなりの中心を150〜600Hzに置く */
+  envIn() {
+    const c = ac(), t = c.currentTime, dur = 0.85;
+    // 主となる地鳴り
+    const src = noise(dur), lp = c.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.setValueAtTime(300, t);
+    lp.frequency.linearRampToValueAtTime(620, t + dur); lp.Q.value = 1.0;
+    const g = out(lp, 1.6);
+    src.connect(lp);
+    const lfo = c.createOscillator(), la = c.createGain();
+    lfo.frequency.value = 14; la.gain.value = 0.5;
+    lfo.connect(la); la.connect(g.gain); lfo.start(t); lfo.stop(t + dur);
+    env(g, t, [[0, 0], [0.04, 0.85], [dur - 0.2, 0.7], [dur, 0]]);
+    // ざらつきを足して存在感を出す
+    const src2 = noise(dur), bp = c.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 0.8;
+    const g2 = out(bp, 0.55); src2.connect(bp);
+    const lfo2 = c.createOscillator(), la2 = c.createGain();
+    lfo2.frequency.value = 14; la2.gain.value = 0.4;
+    lfo2.connect(la2); la2.connect(g2.gain); lfo2.start(t); lfo2.stop(t + dur);
+    env(g2, t, [[0, 0], [0.04, 0.5], [dur, 0]]);
+    // 重さを支える低音
+    const o = c.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(80, t); o.frequency.linearRampToValueAtTime(120, t + dur);
+    const olp = c.createBiquadFilter(); olp.type = 'lowpass'; olp.frequency.value = 400;
+    o.connect(olp);
+    const og = out(olp, 0.5); env(og, t, [[0, 0], [0.05, 0.45], [dur, 0]]);
+    src.start(t); src.stop(t + dur); src2.start(t); src2.stop(t + dur);
+    o.start(t); o.stop(t + dur);
+  },
+
+  /* 環境タイルが消える：ガタガタガタッ（崩れる） */
+  envOut() {
+    const c = ac(), t = c.currentTime;
+    for (let i = 0; i < 6; i++) {
+      const at = t + i * 0.065 + Math.random() * 0.012, d = 0.09;
+      const src = noise(d), bp = c.createBiquadFilter();
+      bp.type = 'bandpass'; bp.frequency.value = 520 - i * 55; bp.Q.value = 1.4;
+      const g = out(bp, 0.9 - i * 0.1);
+      src.connect(bp);
+      env(g, at, [[0, 0], [0.004, 0.9], [d, 0]]);
+      src.start(at); src.stop(at + d);
+    }
+    const o = c.createOscillator(); o.type = 'triangle';
+    o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.5);
+    const og = out(o, 0.4); env(og, t, [[0, 0], [0.02, 0.45], [0.5, 0]]);
+    o.start(t); o.stop(t + 0.5);
+  },
+
+  /* 動物タイルが出る：ガサガサガサッ（草むら） */
+  aniIn() {
+    const c = ac(), t = c.currentTime, dur = 0.5;
+    const src = noise(dur), hp = c.createBiquadFilter();
+    hp.type = 'highpass'; hp.frequency.value = 2200;
+    const bp = c.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 4200; bp.Q.value = 0.7;
+    const g = out(bp, 0.8);
+    src.connect(hp); hp.connect(bp);
+    env(g, t, [[0, 0], [0.02, 0.7], [0.12, 0.35], [0.2, 0.7], [0.3, 0.3], [0.38, 0.55], [dur, 0]]);
+    src.start(t); src.stop(t + dur);
+  },
+
+  /* 動物タイルが消える：ピューンッ（落ちていく） */
+  aniOut() {
+    const c = ac(), t = c.currentTime, dur = 0.45;
+    const o = c.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(1250, t);
+    o.frequency.exponentialRampToValueAtTime(150, t + dur);
+    const g = out(o, 0.5);
+    env(g, t, [[0, 0], [0.015, 0.55], [dur * 0.7, 0.3], [dur, 0]]);
+    o.start(t); o.stop(t + dur);
+  },
+
+  /* カードを引く：シュッ */
+  draw() {
+    const c = ac(), t = c.currentTime, dur = 0.2;
+    const src = noise(dur), bp = c.createBiquadFilter();
+    bp.type = 'bandpass'; bp.Q.value = 1.1;
+    bp.frequency.setValueAtTime(700, t);
+    bp.frequency.exponentialRampToValueAtTime(3600, t + dur);
+    const g = out(bp, 0.85);
+    src.connect(bp);
+    env(g, t, [[0, 0], [0.01, 0.8], [dur, 0]]);
+    src.start(t); src.stop(t + dur);
+  },
+
+  /* 手札を捨てる：バサッ…（紙束が擦れて落ちる） */
+  discard() {
+    const c = ac(), t = c.currentTime, dur = 0.55;
+    // 紙の擦れ。高めの帯域をゆっくり下ろしていく
+    const src = noise(dur), bp = c.createBiquadFilter();
+    bp.type = 'bandpass'; bp.Q.value = 0.5;
+    bp.frequency.setValueAtTime(3200, t);
+    bp.frequency.exponentialRampToValueAtTime(900, t + dur);
+    const hp = c.createBiquadFilter();
+    hp.type = 'highpass'; hp.frequency.value = 500;      // 低い衝撃音を残さない
+    const g = out(bp, 0.75);
+    src.connect(hp); hp.connect(bp);
+    // 何枚かがばらけて擦れる
+    env(g, t, [[0, 0], [0.03, 0.7], [0.1, 0.45], [0.18, 0.6],
+               [0.28, 0.35], [0.38, 0.22], [dur, 0]]);
+    src.start(t); src.stop(t + dur);
+    // 束が置かれる、ごく軽い接地音
+    const src2 = noise(0.12), bp2 = c.createBiquadFilter();
+    bp2.type = 'bandpass'; bp2.frequency.value = 420; bp2.Q.value = 0.8;
+    const g2 = out(bp2, 0.3); src2.connect(bp2);
+    env(g2, t + 0.24, [[0, 0], [0.01, 0.5], [0.12, 0]]);
+    src2.start(t + 0.24); src2.stop(t + 0.36);
+  },
+
+  /* ゲーム開始：ピーッ（ホイッスル） */
+  start() {
+    const c = ac(), t = c.currentTime, dur = 0.55;
+    [2050, 2620].forEach((f, i) => {
+      const o = c.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(f, t);
+      const vib = c.createOscillator(), va = c.createGain();
+      vib.frequency.value = 22; va.gain.value = 28;
+      vib.connect(va); va.connect(o.frequency); vib.start(t); vib.stop(t + dur);
+      const g = out(o, i ? 0.22 : 0.32);
+      env(g, t, [[0, 0], [0.03, 0.9], [dur - 0.08, 0.8], [dur, 0]]);
+      o.start(t); o.stop(t + dur);
+    });
+  },
+
+  /* 誘発効果の画面：ピンポーンッ（インターホン） */
+  fx() {
+    const c = ac(), t = c.currentTime;
+    // 高い音のあと、低い音を長く。二音チャイム
+    [[0, 988, 0.55], [0.30, 784, 1.05]].forEach(([off, f, dur]) => {
+      const at = t + off;
+      [[1, 1.0], [2, 0.3], [3.01, 0.12], [4.2, 0.05]].forEach(([r, a2]) => {
+        const o = c.createOscillator(); o.type = 'sine';
+        o.frequency.setValueAtTime(f * r, at);
+        const g = out(o, a2 * 0.19);        // 他の音と釣り合う音量に抑える
+        env(g, at, [[0, 0], [0.006, 0.9], [0.12, 0.4], [dur, 0]]);
+        o.start(at); o.stop(at + dur);
+      });
+    });
+  },
+
+  /* ゲーム終了：ピピーッ（開始と同じ笛だが、短く一度吹いてから長く伸ばす） */
+  end() {
+    const c = ac(), t = c.currentTime;
+    // [吹き始め, 長さ]
+    const blows = [[0, 0.12], [0.19, 0.80]];
+    blows.forEach(([off, dur]) => {
+      const at = t + off;
+      [2050, 2620].forEach((f, i) => {
+        const o = c.createOscillator(); o.type = 'sine';
+        o.frequency.setValueAtTime(f, at);
+        const vib = c.createOscillator(), va = c.createGain();
+        vib.frequency.value = 22; va.gain.value = 28;      // 笛の転がり
+        vib.connect(va); va.connect(o.frequency);
+        vib.start(at); vib.stop(at + dur);
+        const g = out(o, i ? 0.22 : 0.32);
+        env(g, at, [[0, 0], [0.02, 0.9], [dur - 0.05, 0.8], [dur, 0]]);
+        o.start(at); o.stop(at + dur);
+      });
+    });
+  },
+};
+
+function playSfx(name) {
+  if (!SFX_ON) return;
+  try { if (ac().state === 'suspended') ac().resume(); SFX[name](); }
+  catch (e) { /* 音が出せない環境では黙って無視する */ }
+}
+
+/* ============================================================
+   画面側
+   ・状態を描くだけ。ここから状態を書き換えない
+   ・操作は applyCommand を通してのみ状態に届く
+   ============================================================ */
+
+const DEBUG = new URLSearchParams(location.search).has('debug');
+const CPU_NAME = { 1: '初心者', 2: '中級者', 3: '上級者' };
+let ONLINE = false;          // オンライン対戦のときは true（Phase 6 で使う）
+const VERSION = document.title.split('v').pop();
+const DBG = [];
+function dbg(msg) { DBG.push(`[警告] ${msg}`); if (DEBUG) console.warn(msg); }
+
+let S = null;                 // 現在の状態
+let CPU = null;               // CPU用の乱数
+let busy = false;             // 相手のターン中など、操作を受け付けない
+let fxBusy = false;           // タイルの出入り演出の最中
+let fxWait = Promise.resolve();
+const canAct = () => S && S.cur === ME && S.phase === 'action' && !busy && !fxBusy;
+const $ = id => document.getElementById(id);
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- 発行口：ここを通したコマンドだけが状態を変える ---------- */
+function send(cmd) {
+  const out = applyCommand(S, cmd);
+  if (!out.ok) return out;
+  DBG.push(`#${S.seq} ${JSON.stringify(cmd)} → ${stateHash(S)}`);
+  // 置く演出を先に見せ、そのあと消える演出を1枚ずつ流す
+  const ghosts = captureGhosts(out.removed);
+  const enter = out.added.length ? 470 : 0;      // 置く演出の長さ
+  render(out);
+  if (ghosts.length) {
+    fxBusy = true;
+    fxWait = ghostOut(ghosts, enter).then(() => { fxBusy = false; render(); });
+  } else {
+    fxWait = enter ? wait(enter) : Promise.resolve();
+  }
+  return out;
+}
+
+/* プレイヤーの行動：演出 → 効果の解決 → 2回目なら自動でターン終了 */
+async function doAction(cmd) {
+  busy = true;
+  send(cmd);
+  await fxWait;
+  while (S.pending) {
+    await wait(500);                       // タイルが収まってから効果を出す
+    const pd = S.pending, title = `${A[pd.src].name}の効果`;
+    if (pd.auto) {                         // 強制：実行してから結果を見せる
+      playSfx('fx');                       // この画面が最初なのでここで鳴らす
+      const cards = S.hands[pd.victim].slice();
+      send({ type: 'resolveFx', choice: null });
+      await fxWait;
+      await showFxInfo(title, `${who(pd.victim)}の手札をすべて捨てた`, cards);
+    } else {
+      const choice = await askFx();
+      const seen = (pd.kind === 'reveal' && choice) ? S.hands[pd.victim].slice() : null;
+      send({ type: 'resolveFx', choice });
+      await fxWait;
+      if (seen) await showFxInfo(title, `${who(pd.victim)}の手札を見る`, seen);
+    }
+  }
+  busy = false;
+  render();
+  if (S.cur === ME && S.phase === 'action' && S.used.length >= 2) {
+    busy = true;
+    await wait(600);
+    busy = false;
+    endMyTurn();
+  }
+}
+
+/* ---------- 描画 ---------- */
+const cardImg = (id, cls) =>
+  `<img src="${CARDS.cardImageDir}/card_${id}.png" alt="${card(id).name || E[id].type}" class="${cls || ''}" onerror="this.classList.add('miss')">`;
+
+function envTile(id, p, click) {
+  const e = E[id];
+  return `<button class="tile env" style="background:${envColor(e.type)}" data-card="${id}" data-kind="${click}">
+    <span class="crop crop-wide">${cardImg(id)}</span>
+    <span class="lbl">${e.type}（＋${e.level}）</span></button>`;
+}
+function aniTile(id, p) {
+  const a = A[id];
+  const base = a.score, now = scoreOf(S, p, id);
+  const req = a.reqLevel, reqNow = reqLevel(S, p, id);
+  const eff = a.effect && a.effect.kind.startsWith('static')
+    ? '<span class="bdg bdg-eff">効</span>' : '';
+  return `<button class="tile ani" style="background:${aniColor(a)}" data-card="${id}" data-kind="field-ani">
+    <span class="crop crop-sq">${cardImg(id)}</span>
+    <span class="bdg bdg-lv">${num(reqNow, reqNow < req ? 'up' : '')}</span>${eff}
+    <span class="lbl">評価点 ${num(now, now < 0 ? 'down' : now > base ? 'up' : now < base ? 'down' : '')}</span></button>`;
+}
+function num(v, st) { return st ? `<span class="n-${st}">${v}</span>` : `${v}`; }
+/* 環境レベル：サワガニ・ヌートリアで変動していれば色を付ける */
+function lvHTML(p) {
+  const now = envLevel(S, p, null), base = envBase(S, p);
+  return num(now, now > base ? 'up' : now < base ? 'down' : '');
+}
+const COL = { 森林: '#12501B', 草原: '#B4E5A2', 湖沼: '#0000FF', 河川: '#CAEEFC', 湿地: '#E59EDD', 渓流: '#E97132' };
+const envColor = t => COL[t];
+const aniColor = a => a.habitats.length === 1 ? COL[a.habitats[0]]
+  : `linear-gradient(90deg,${COL[a.habitats[0]]} 0 50%,${COL[a.habitats[1]]} 50% 100%)`;
+
+function render(chg) {
+  // 相手のビオトープ
+  $('opEnv').innerHTML = S.env[OP].map(id => envTile(id, OP, 'field-env-op')).join('')
+    + (S.env[OP].length < 5 ? '<div class="tile env empty">空き</div>' : '');
+  $('opAni').innerHTML = S.animals[OP].map(id => aniTile(id, OP)).join('')
+    + '<div class="tile ani empty"></div>';
+  $('opLv').innerHTML = lvHTML(OP);
+  $('opSc').innerHTML = num(totalScore(S, OP), '');
+  $('opHand').textContent = S.hands[OP].length;
+  $('opCpu').textContent = ONLINE ? '' : `（CPU：${CPU_NAME[S.cpuLevel || 1]}）`;
+
+  // あなたのビオトープ
+  $('meEnv').innerHTML = S.env[ME].map(id => envTile(id, ME, 'field-env')).join('')
+    + (S.env[ME].length < 5 ? '<div class="tile env empty">空き</div>' : '');
+  $('meAni').innerHTML = S.animals[ME].map(id => aniTile(id, ME)).join('')
+    + '<div class="tile ani empty"></div>';
+  $('meLv').innerHTML = lvHTML(ME);
+  const d = totalScore(S, ME) - totalScore(S, OP);
+  $('meSc').innerHTML = num(totalScore(S, ME), '');
+  $('meDiff').textContent = d === 0 ? '（相手と同じ）'
+    : `（相手より${Math.abs(d)}${d > 0 ? '高い' : '低い'}）`;
+
+  // 中央
+  $('turnWho').textContent = `${who(S.cur)}のターン`;
+  $('deckLeft').innerHTML = S.deck.length ? `山札残り<b>${S.deck.length}</b>枚` : '山札なし';
+  $('endBtn').textContent = S.isLastTurn ? 'ゲーム終了' : 'ターン終了';
+  ['playEnv', 'discardEnv', 'playAni'].forEach((k, i) => {
+    $('act' + i).classList.toggle('used', S.used.includes(k) || S.used.length >= 2);
+  });
+  const mine = canAct();
+  $('endBtn').classList.toggle('off', !mine);
+
+  // 手札
+  $('handWrap').innerHTML = S.hands[ME].map(id => {
+    const ok = isEnv(id) ? canPlayEnv(S, id).ok
+      : (canPlayAnimal(S, ME, id).ok || canPlayAnimal(S, OP, id).ok);
+    return `<button class="hand-card ${mine && ok ? 'ok' : 'ng'}" data-card="${id}" data-kind="hand-${isEnv(id) ? 'env' : 'ani'}">
+      <span class="hc-inner" style="background:${isEnv(id) ? envColor(E[id].type) : aniColor(A[id])}">${cardImg(id)}</span></button>`;
+  }).join('');
+  $('handTitle').innerHTML = S.hands[ME].length
+    ? '<span class="big">あなたの手札</span><span class="hint">※クリックしてカードを出します</span>'
+    : '<span class="big">手札なし</span>';
+
+  drawTurnLog();
+  if (chg) animate(chg);
+  if (DEBUG) {
+    $('dbgBox').hidden = false;
+    $('dbgBox').textContent = `seed ${S.seed} / seq ${S.seq} / hash ${stateHash(S)}`;
+  }
+}
+
+/* 置く演出 */
+function animate(chg) {
+  chg.added.forEach(a => {
+    const el = tileEl(a);
+    if (el) el.classList.add(isEnv(a.id) ? 'enter-env' : 'enter-ani');
+    playSfx(isEnv(a.id) ? 'envIn' : 'aniIn');
+  });
+}
+const tileEl = a => document.querySelector(
+  `#${a.p === ME ? 'me' : 'op'}${isEnv(a.id) ? 'Env' : 'Ani'} [data-card="${a.id}"]`);
+
+/* 消える演出。
+   状態からはすでに消えているので、描き直す前に見た目を写し取り、
+   新しい盤面の上に戻してから1枚ずつ退場させる。 */
+const FX_STEP = 200, FX_LEN = 500;
+function captureGhosts(removed) {
+  return removed.map(r => {
+    const el = tileEl(r);
+    if (!el) return null;
+    const p = el.parentNode;
+    return { html: el.outerHTML, parentId: p.id, idx: [...p.children].indexOf(el) };
+  }).filter(Boolean);
+}
+function ghostOut(ghosts, startDelay) {
+  return new Promise(done => setTimeout(() => {
+    const nodes = ghosts.map(g => {
+      const p = $(g.parentId);
+      if (!p) return null;
+      const box = document.createElement('div');
+      box.innerHTML = g.html;
+      const el = box.firstElementChild;
+      el.classList.add('ghost');
+      el.removeAttribute('data-card');
+      p.insertBefore(el, p.children[Math.min(g.idx, p.children.length)]);
+      return el;
+    }).filter(Boolean);
+    nodes.forEach((el, i) => {
+      el.style.animationDelay = (i * FX_STEP) + 'ms';
+      el.classList.add('leaving');
+      const kind = el.classList.contains('env') ? 'envOut' : 'aniOut';
+      setTimeout(() => playSfx(kind), i * FX_STEP);
+    });
+    const total = nodes.length ? (nodes.length - 1) * FX_STEP + FX_LEN + 60 : 0;
+    setTimeout(() => { nodes.forEach(n => n.remove()); done(); }, total);
+  }, startDelay));
+}
+
+/* ---------- ターンログ（中央の1行枠） ---------- */
+function drawTurnLog() {
+  let i = S.log.length - 1;
+  const lines = [];
+  while (i >= 0 && S.log[i].k !== 'turn') { lines.unshift(S.log[i]); i--; }
+  // 中央の枠にだけ「Xターン目」を添える（ゲームログ側は見出しがあるので不要）
+  if (i >= 0) lines.unshift({ text: `${S.log[i].no}ターン目`, cls: '' });
+  $('turnLog').innerHTML = lines.map(l => `<div class="log-line ${l.cls}">${l.text}</div>`).join('');
+  $('turnLog').scrollTop = $('turnLog').scrollHeight;
+}
+function drawFullLog() {
+  $('logBox').innerHTML = S.log.map(l => l.k === 'turn'
+    ? `<div class="log-turn">${l.text}</div>`
+    : `<div class="log-line ${l.cls}">${l.text}</div>`).join('');
+}
+
+/* ---------- オーバーレイ ---------- */
+function openOv(id) {
+  const ov = $(id); ov.classList.add('on');
+  if (id === 'ovDisc') drawDiscard();
+  if (id === 'ovBoard') drawBoard();
+  if (id === 'ovRule') resetRule();
+  if (id === 'ovLog') drawFullLog();
+  // 内側・外側を問わず、スクロールしている要素をすべて先頭に戻す
+  ov.querySelectorAll('*').forEach(el => { if (el.scrollTop) el.scrollTop = 0; });
+  ov.scrollTop = 0;
+  if (id === 'ovLog') { const b = $('logBox'); b.scrollTop = b.scrollHeight; }  // ログだけ最新へ
+}
+function closeOv(el) {
+  el.classList.remove('on');
+  if (el.id === 'ovRule') resetRule();
+}
+function closeAllOv() { document.querySelectorAll('.ov.on').forEach(o => o.classList.remove('on')); }
+
+function drawDiscard() {
+  $('discGrid').innerHTML = S.discard.slice().reverse()
+    .map(id => `<button class="dcard" data-card="${id}" data-kind="zoom-only">${cardImg(id)}</button>`).join('')
+    || '<div class="rnone">なし</div>';
+}
+let boardShowHand = false;      // ゲーム中に開いたときは手札枚数も出す
+const openBoardInGame = () => { boardShowHand = true; openOv('ovBoard'); };
+function syncSfxLabel() {
+  ['sfxBtn', 'sfxBtnTitle'].forEach(i => {
+    const b = $(i); if (!b) return;
+    b.textContent = SFX_ON ? '効果音：ON' : '効果音：OFF';
+    b.classList.toggle('quiet', !SFX_ON);      // 切っているときは色を落とす
+  });
+}
+function boardBtn() {
+  const b = document.createElement('button');
+  b.className = 'btn lg'; b.textContent = 'ビオトープを見る';
+  b.onclick = openBoardInGame;
+  return b;
+}
+function drawBoard() {
+  const zone = p => `
+    <div class="zone-head" style="margin-bottom:18px">
+      <span class="zone-name">${p === ME ? 'あなた' : '相手'}のビオトープ</span>
+      <span class="stat">環境レベル<b>${lvHTML(p)}</b></span>
+      <span class="stat">評価点の合計<b>${totalScore(S, p)}</b></span>
+      ${boardShowHand ? `<span class="stat">手札<b>${S.hands[p].length}</b>枚</span>` : ''}
+    </div>
+    <div class="row" style="margin-bottom:16px">${S.animals[p].map(id => aniTile(id, p)).join('')
+      .replace(/data-kind="field-ani"/g, 'data-kind="zoom-only"')}</div>
+    <div class="row">${S.env[p].map(id => envTile(id, p, 'zoom-only')).join('')}</div>`;
+  $('boardMe').innerHTML = zone(ME);
+  $('boardOp').innerHTML = zone(OP);
+  // ゲーム中に開いたときだけ、枠の外に手番と山札を出す
+  $('boardHead').hidden = !boardShowHand;
+  if (boardShowHand)
+    $('boardHead').textContent =
+      `${who(S.cur)}のターン　${S.deck.length ? `山札残り${S.deck.length}枚` : '山札なし'}`;
+}
+
+/* ---------- カード拡大 ---------- */
+function openZoom(id, kind) {
+  $('ovImg').src = `${CARDS.cardImageDir}/card_${id}.png`;
+  const box = $('ovBtns'); box.innerHTML = '';
+  // 他のオーバーレイが開いているとき、または効果の解決待ちのあいだは、
+  // 拡大表示から操作させない（「戻る」だけにする）
+  const busyOv = !!document.querySelector('.ov.on:not(#ovZoom)') || !!(S && S.pending);
+  const mine = canAct() && !busyOv;
+  let list;
+  if (busyOv) list = [['戻る', true, '', null]];
+  else if (kind === 'hand-ani') {
+    const a = mine ? canPlayAnimal(S, ME, id) : { ok: false, why: '' };
+    const b = mine ? canPlayAnimal(S, OP, id) : { ok: false, why: '' };
+    list = [['あなたのビオトープに出す', a.ok, a.why, () => doAction({ type: 'playAni', card: id, target: ME })],
+            ['相手のビオトープに出す', b.ok, b.why, () => doAction({ type: 'playAni', card: id, target: OP })],
+            ['戻る', true, '', null]];
+  } else if (kind === 'hand-env') {
+    const c = mine ? canPlayEnv(S, id) : { ok: false, why: '' };
+    list = [['あなたのビオトープに出す', c.ok, c.why, () => doAction({ type: 'playEnv', card: id })],
+            ['戻る', true, '', null]];
+  } else if (kind === 'field-env') {
+    const c = mine ? canDiscardEnv(S) : { ok: false, why: '' };
+    list = [['ビオトープから捨てる', c.ok, c.why, () => doAction({ type: 'discardEnv', card: id })],
+            ['戻る', true, '', null]];
+  } else {
+    list = [['戻る', true, '', null]];
+  }
+  list.forEach(([label, ok, why, act]) => {
+    const w = document.createElement('div'); w.className = 'btn-wrap';
+    const b = document.createElement('button');
+    b.className = 'btn lg' + (ok ? '' : ' off');
+    b.textContent = label;
+    if (ok) b.addEventListener('click', () => { $('ovZoom').classList.remove('on'); if (act) act(); });
+    w.appendChild(b);
+    if (why) { const r = document.createElement('div'); r.className = 'why'; r.textContent = why; w.appendChild(r); }
+    box.appendChild(w);
+  });
+  $('ovZoom').classList.add('on');
+}
+
+/* ---------- 誘発効果の解決画面 ---------- */
+const cardBox = c => `<div class="mini-card" data-card="${c}" data-kind="zoom-only">${cardImg(c)}</div>`;
+
+/* 結果だけを見せる画面（確認ボタンのみ） */
+function showFxInfo(title, sub, cards) {
+  $('fxTitle').textContent = title;
+  $('fxSub').textContent = sub;
+  $('fxBody').innerHTML = `<div class="mini-row">${cards.map(cardBox).join('')}</div>`;
+  return new Promise(done => {
+    $('fxBtns').innerHTML = ''; $('fxBtns2').innerHTML = '';
+    const ok = document.createElement('button');
+    ok.className = 'btn lg'; ok.textContent = '確認した';
+    ok.onclick = () => { $('ovFx').classList.remove('on'); done(); };
+    $('fxBtns').appendChild(ok);
+    $('fxBtns2').appendChild(boardBtn());
+    openOv('ovFx');
+  });
+}
+const FX_LABEL = { an17: ['出す', '出さない'] };     // 既定は 選ぶ／選ばない
+function askFx() {
+  const pd = S.pending;
+  const name = A[pd.src].name;
+  const [on, off] = FX_LABEL[pd.src] || ['選ぶ', '選ばない'];
+  $('fxTitle').textContent = `${name}の効果`;
+  $('fxSub').textContent = pd.src === 'an05'
+    ? `${who(pd.victim)}の手札をすべて捨てる` : FX_SUB[pd.src];
+
+  let sel = null;
+  const body = $('fxBody'), btns = $('fxBtns');
+
+  if (pd.kind === 'confirm' || pd.kind === 'reveal') body.innerHTML = '';
+  else if (pd.kind === 'fixedPlay')
+    body.innerHTML = `<div class="mini-row">${cardBox(pd.options[0])}</div>`;
+  else
+    body.innerHTML = `<div class="pick-grid${pd.act === 'takeFromDiscard' ? ' left' : ''}">${pd.options.map(c => `
+      <div class="pick-item" data-opt="${c}">${cardBox(c)}
+        <div class="pick-state">${off}</div>
+        <button class="btn pick-btn">変更</button></div>`).join('')}</div>`;
+
+  return new Promise(done => {
+    const finish = v => { $('ovFx').classList.remove('on'); done(v); };
+    btns.innerHTML = ''; $('fxBtns2').innerHTML = '';
+    const add = (label, cls, fn) => {
+      const b = document.createElement('button');
+      b.className = 'btn lg' + (cls ? ' ' + cls : '');
+      b.textContent = label;
+      b.onclick = () => { if (!b.classList.contains('off')) fn(); };
+      btns.appendChild(b);
+      return b;
+    };
+    {
+      const oneStep = pd.kind === 'fixedPlay' || pd.kind === 'reveal';
+      const run = add('効果を実行する', oneStep ? '' : 'off',
+        () => finish(oneStep ? pd.options[0] : sel));
+      if (pd.optional) add('効果を実行しない', '', () => finish(null));
+      $('fxBtns2').appendChild(boardBtn());     // 盤面確認は2行目に置く
+      if (pd.kind === 'pick') {
+        body.onclick = e => {
+          const btn = e.target.closest('.pick-btn');
+          if (!btn) return;
+          const item = btn.closest('.pick-item');
+          const was = item.classList.contains('sel');
+          body.querySelectorAll('.pick-item').forEach(x => {
+            x.classList.remove('sel'); x.querySelector('.pick-state').textContent = off;
+          });
+          if (was) sel = null;
+          else { item.classList.add('sel'); item.querySelector('.pick-state').textContent = on; sel = item.dataset.opt; }
+          run.classList.toggle('off', !sel);
+        };
+      }
+    }
+    playSfx('fx');
+    openOv('ovFx');
+  });
+}
+
+/* ---------- 手札補充 ---------- */
+function drawPhaseUI() {
+  const upd = () => {
+    $('drawDeck').textContent = S.deck.length;
+    $('drawHand').innerHTML = S.hands[ME].map(id =>
+      `<div class="mini-card" data-card="${id}" data-kind="zoom-only">${cardImg(id)}</div>`).join('')
+      || '<div class="rnone">手札なし</div>';
+    $('drawLabel').style.visibility = S.hands[ME].length ? 'visible' : 'hidden';  // 場所は空けたまま
+    $('drawBtn').classList.toggle('off', !S.deck.length || S.hands[ME].length >= 5);
+    $('drawStop').classList.toggle('off', S.drawn < 1);
+  };
+  upd();
+  openOv('ovDraw');
+  return new Promise(res => {
+    const done = () => { $('ovDraw').classList.remove('on'); send({ type: 'endDraw' }); res(); };
+    $('drawBtn').onclick = () => {
+      if ($('drawBtn').classList.contains('off')) return;
+      playSfx('draw');
+      send({ type: 'draw' }); upd();
+      if (!S.deck.length || S.hands[ME].length >= 5) setTimeout(done, 350);
+    };
+    $('drawStop').onclick = () => { if (!$('drawStop').classList.contains('off')) done(); };
+  });
+}
+
+/* ---------- 手札整理 ---------- */
+function tidyPhaseUI() {
+  const sel = new Set();
+  const upd = () => {
+    $('tidyGrid').innerHTML = S.hands[ME].map(id => `
+      <div class="tidy-item ${sel.has(id) ? 'sel' : ''}">
+        <div class="mini-card" data-card="${id}" data-kind="zoom-only">${cardImg(id)}</div>
+        <div class="tidy-state">${sel.has(id) ? '捨てる' : '捨てない'}</div>
+        <button class="btn tidy-btn" data-tidy="${id}">変更</button>
+      </div>`).join('');
+    $('tidyOk').classList.toggle('off', S.hands[ME].length - sel.size > 4);
+  };
+  upd();
+  if (!S.hands[ME].length) { send({ type: 'tidy', cards: [] }); return Promise.resolve(); }
+  openOv('ovTidy');
+  return new Promise(res => {
+    $('ovTidy').onclick = e => {
+      const t = e.target.closest('[data-tidy]');
+      if (t) { const id = t.dataset.tidy; sel.has(id) ? sel.delete(id) : sel.add(id); upd(); return; }
+      if (e.target.id === 'tidyAll') { S.hands[ME].forEach(id => sel.add(id)); upd(); return; }
+      if (e.target.id === 'tidyOk' && !e.target.classList.contains('off')) {
+        if (sel.size) playSfx('discard');
+        $('ovTidy').classList.remove('on');
+        send({ type: 'tidy', cards: [...sel] });
+        res();
+      }
+    };
+  });
+}
+
+/* ---------- ターン進行 ---------- */
+async function flash(id, sub) {
+  if (sub !== undefined) $(id + 'Sub').textContent = sub;   // 省略時は元の文言を残す
+  const ov = $(id); ov.classList.add('on');
+  await Promise.race([wait(1000), new Promise(r => ov.addEventListener('click', r, { once: true }))]);
+  ov.classList.remove('on');
+}
+async function runTurn() {
+  busy = true;
+  closeAllOv();
+  send({ type: 'startTurn' });
+  await flash(S.cur === ME ? 'ovTurnYou' : 'ovTurnOpp', `（${S.turnNo[S.cur]}ターン目）`);
+  if (S.isLastTurn) await flash('ovTurnLast');
+
+  if (S.cur === ME) {
+    if (S.phase === 'draw') { busy = false; await drawPhaseUI(); }
+    busy = false;
+    render();
+    return;                                   // 以降はプレイヤーの操作待ち
+  }
+
+  // 相手のターン
+  render();
+  if (S.phase === 'draw') {
+    const want = cpuDraw(S);
+    for (let i = 0; i < want && S.deck.length && S.hands[OP].length < 5; i++) { await wait(320); playSfx('draw'); send({ type: 'draw' }); await fxWait; }
+    send({ type: 'endDraw' });
+  }
+  for (let i = 0; i < 2; i++) {
+    await wait(700);
+    const m = cpuChoose(S, CPU);
+    if (!m) break;
+    send(m);
+    await fxWait;
+    while (S.pending) {                       // 相手の選択は画面を出さずに進める
+      await wait(650);
+      send({ type: 'resolveFx', choice: cpuResolve(S, CPU) });
+      await fxWait;
+    }
+  }
+  await wait(500);
+  send({ type: 'endActions' });
+  const drop = cpuTidy(S, CPU);
+  if (drop.length) playSfx('discard');
+  send({ type: 'tidy', cards: drop });
+  await fxWait;
+  await wait(400);
+  afterTurn();
+}
+function afterTurn() {
+  if (S.over) { showResult(); return; }
+  runTurn();
+}
+async function endMyTurn() {
+  busy = true;
+  await fxWait;                      // 演出が終わってから整理画面を出す
+  send({ type: 'endActions' });
+  if (S.isLastTurn) send({ type: 'tidy', cards: [] });   // 最後のターンは整理を挟まない
+  else { await tidyPhaseUI(); await wait(650); }         // 捨てる音を聞かせてから次へ
+  afterTurn();
+}
+
+/* ---------- 結果 ---------- */
+function showResult() {
+  const r = S.result;
+  let head;
+  if (r.resigned !== undefined) head = r.resigned === ME ? 'あなたの負け（降参）' : 'あなたの勝ち（相手の降参）';
+  else head = r.win === null ? '引き分け' : (r.win === ME ? 'あなたの勝ち' : 'あなたの負け');
+  $('resHead').textContent = head;
+  const win = head.startsWith('あなたの勝ち'), lose = head.startsWith('あなたの負け');
+  $('resHead').classList.toggle('res-win', win);     // 勝ちは青
+  $('resHead').classList.toggle('res-lose', lose);   // 負けは赤（引き分けは黒）
+  $('resCols').innerHTML = `<th></th>
+    <td>あなた<span class="sub">（${S.first === ME ? '先攻' : '後攻'}）</span></td>
+    <td>相手<span class="sub">（${S.first === OP ? '先攻' : '後攻'}）</span></td>`;
+  const rows = [['評価点の合計', r.score], ['ビオトープにある環境の種類', r.envTypes],
+    ['ビオトープにいる動物の数', r.animals], ['ビオトープにいる絶滅危惧種の数', r.endangered],
+    ['ビオトープにいる特定外来生物の数', r.invasive], ['途中でビオトープから消えた動物の数', r.lost],
+    ['総ターン数', r.turns], ['山札から引いたカード枚数', r.drawn]];
+  $('resBody').innerHTML = rows.map(([k, v]) =>
+    `<tr><th>${k}</th><td${k === '評価点の合計' && r.win === ME ? ' class="res-win"' : ''}>${v[ME]}</td>
+     <td${k === '評価点の合計' && r.win === OP ? ' class="res-win"' : ''}>${v[OP]}</td></tr>`).join('');
+  playSfx('end');
+  openOv('ovResult');
+}
+
+/* ゲーム開始前に、空の盤面を背景として出しておく */
+function blankBoard() {
+  $('opEnv').innerHTML = $('meEnv').innerHTML = '<div class="tile env empty">空き</div>';
+  $('opAni').innerHTML = $('meAni').innerHTML = '<div class="tile ani empty"></div>';
+  ['opLv', 'opSc', 'meLv', 'meSc'].forEach(i => $(i).textContent = '0');
+  $('opHand').textContent = '0';
+  $('opCpu').textContent = '';
+  $('meDiff').textContent = '（相手と同じ）';
+  $('turnWho').textContent = 'ゲーム開始前';
+  $('deckLeft').innerHTML = '山札残り<b>62</b>枚';
+  $('handWrap').innerHTML = '';
+  $('handTitle').innerHTML = '<span class="big">あなたの手札</span>';
+  $('turnLog').innerHTML = '';
+  ['act0', 'act1', 'act2'].forEach(i => $(i).classList.remove('used'));
+  $('endBtn').classList.add('off');
+  $('game').hidden = false;
+}
+
+/* ---------- 開始 ---------- */
+function startGame(first) {
+  const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
+  S = newGame(seed, first, window.cpuLevel || 1);
+  CPU = rng(seed ^ 0x9e3779b9);
+  DBG.length = 0;
+  DBG.push(`seed ${seed} / 先攻 ${who(first)} / CPU ${['初心者','中級者','上級者'][(window.cpuLevel||1)-1]}`);
+  closeAllOv();
+  $('game').hidden = false;
+  render();
+  playSfx('start');
+  runTurn();
+}
+
+
+/* ---------- 入力の受け口 ---------- */
+document.addEventListener('click', e => {
+  const zoom = e.target.closest('[data-card]');
+  if (zoom && !e.target.closest('[data-tidy]')) { openZoom(zoom.dataset.card, zoom.dataset.kind); return; }
+  const b = e.target.closest('button');
+  if (!b) return;   // 背景クリックでは閉じない。進行はすべてボタン操作で行う
+
+  if (b.hasAttribute('data-close')) { closeOv(b.closest('.ov')); return; }
+  switch (b.id) {
+    case 'cpuBtn':   closeOv(document.getElementById('ovTitle')); blankBoard(); openOv('ovLevel'); return;
+    case 'rulesBtn':
+    case 'ruleBtn':  openOv('ovRule'); return;
+    case 'aboutBtn': openOv('ovAbout'); return;
+    case 'logBtn':
+    case 'resLog':   openOv('ovLog'); return;
+    case 'discBtn':  openOv('ovDisc'); return;
+    case 'quitBtn':  openOv('ovQuit'); return;
+    case 'quitYes':  location.reload(); return;
+    case 'sfxBtn':
+    case 'sfxBtnTitle': SFX_ON = !SFX_ON; syncSfxLabel(); if (SFX_ON) playSfx('draw'); return;
+    case 'resBoard': boardShowHand = false; openOv('ovBoard'); return;
+    case 'drawBoardBtn':
+    case 'tidyBoardBtn': boardShowHand = true; openOv('ovBoard'); return;
+    case 'resAgain': closeAllOv(); openOv('ovLevel'); return;   // 最終盤面が背景に残る
+    case 'resTitle': location.reload(); return;
+    case 'endBtn':   if (canAct() && !b.classList.contains('off')) { closeAllOv(); endMyTurn(); } return;
+    case 'copyBtn':  copyDebug(b); return;
+  }
+  if (b.dataset.cpulv && b.closest('#ovLevel')) {
+    window.cpuLevel = +b.dataset.cpulv;
+    closeOv(document.getElementById('ovLevel'));   // 盤面は背景に残す
+    openOv('ovFirst'); return;
+  }
+  if (b.dataset.first && b.closest('#ovFirst')) {
+    const v = b.dataset.first;
+    startGame(v === 'r' ? (Math.random() < .5 ? 0 : 1) : +v);
+    return;
+  }
+});
+
+/* ---------- ルール確認の初期化 ---------- */
+function resetRule() {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'tabQuick'));
+  document.getElementById('tabQuick').hidden = false;
+  document.getElementById('tabCards').hidden = true;
+  fHab = ''; fLv = ''; fEnv = '';
+  document.querySelectorAll('#rfilters .fchip').forEach(x => x.classList.toggle('on', x.dataset.hab === ''));
+  document.querySelectorAll('#rfiltersLv .fchip').forEach(x => x.classList.toggle('on', x.dataset.lv === ''));
+  document.querySelectorAll('#rfiltersEnv .fchip').forEach(x => x.classList.toggle('on', x.dataset.ehab === ''));
+  ruleSync(); envSync();
+}
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
+  ['tabQuick','tabCards'].forEach(id => document.getElementById(id).hidden = (id !== t.dataset.tab));
+}));
+let fHab = '', fLv = '', fEnv = '';
+function ruleSync() {
+  let n = 0;
+  document.querySelectorAll('#rgridA .rcard').forEach(c => {
+    const ok = (!fHab || c.dataset.hab.split(',').includes(fHab)) && (!fLv || c.dataset.lv === fLv);
+    c.classList.toggle('hide', !ok); if (ok) n++;
+  });
+  document.getElementById('rcntA').textContent = n;
+  document.getElementById('rnoneA').hidden = n > 0;
+}
+function envSync() {
+  let n = 0;
+  document.querySelectorAll('#rgridE .rcard').forEach(c => {
+    const ok = !fEnv || c.dataset.etype === fEnv;
+    c.classList.toggle('hide', !ok); if (ok) n++;
+  });
+  document.getElementById('rcntE').textContent = n;
+  document.getElementById('rnoneE').hidden = n > 0;
+}
+document.querySelectorAll('#rfilters .fchip').forEach(b => b.addEventListener('click', () => {
+  fHab = b.dataset.hab;
+  document.querySelectorAll('#rfilters .fchip').forEach(x => x.classList.toggle('on', x === b));
+  ruleSync();
+}));
+document.querySelectorAll('#rfiltersLv .fchip').forEach(b => b.addEventListener('click', () => {
+  fLv = b.dataset.lv;
+  document.querySelectorAll('#rfiltersLv .fchip').forEach(x => x.classList.toggle('on', x === b));
+  ruleSync();
+}));
+document.querySelectorAll('#rfiltersEnv .fchip').forEach(b => b.addEventListener('click', () => {
+  fEnv = b.dataset.ehab;
+  document.querySelectorAll('#rfiltersEnv .fchip').forEach(x => x.classList.toggle('on', x === b));
+  envSync();
+}));
+ruleSync(); envSync(); syncSfxLabel();
+if (DEBUG) document.getElementById('copyBtn').hidden = false;
+
+/* file:// でも動くコピー処理。失敗したら選択済みの文面を出して手動コピーに委ねる */
+function copyDebug(btn) {
+  const NL = String.fromCharCode(10);
+  const text = [`--- ビオトープカードゲーム デバッグログ v${VERSION} ---`].concat(DBG).join(NL);
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:40vh;z-index:200;font-size:12px';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  if (ok) {
+    document.body.removeChild(ta);
+    btn.textContent = 'コピーしました';
+    setTimeout(() => btn.textContent = 'コピー（デバッグ用）', 1500);
+  } else {
+    // 自動コピーが使えないときは、全選択した状態で表示して手動コピーしてもらう
+    ta.insertAdjacentHTML('afterend',
+      '<div id="copyHint" style="position:fixed;left:0;top:40vh;width:100%;z-index:200;background:#1A1A1A;color:#fff;padding:8px;font-size:12px;text-align:center">' +
+      '全選択されています。Ctrl+C（Macは⌘+C）でコピーしてください。<button class="btn" style="margin-left:10px" onclick="this.parentNode.previousSibling.remove();this.parentNode.remove()">閉じる</button></div>');
+  }
+}
+
+</script>
+</body>
+</html>
