@@ -64,15 +64,27 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
 }
 .btn:active { transform:translateY(3px); box-shadow:0 0 0 var(--btn-edge), inset 0 1px 0 rgba(255,255,255,.75); }
 .btn.lg { font-size:var(--fs); padding:9px 20px; }
+/* ボタンの役割ごとの色分け
+   （既定＝進める・暖色）neg＝やらない選択・青／info＝見る・緑／warn＝取り消し・赤／util＝その他・黄 */
+.btn.neg  { background:linear-gradient(#AFD8F5, #74B0E0); border-color:#2E6FA3;
+  box-shadow:0 3px 0 #2E6FA3, inset 0 1px 0 rgba(255,255,255,.7); color:#123A57; }
+.btn.neg:active  { box-shadow:0 0 0 #2E6FA3, inset 0 1px 0 rgba(255,255,255,.7); }
+.btn.info { background:linear-gradient(#B4DFAE, #79BE72); border-color:#2F7A38;
+  box-shadow:0 3px 0 #2F7A38, inset 0 1px 0 rgba(255,255,255,.7); color:#123D18; }
+.btn.info:active { box-shadow:0 0 0 #2F7A38, inset 0 1px 0 rgba(255,255,255,.7); }
+.btn.warn { background:linear-gradient(#F0A9A2, #DE6C61); border-color:#9E2E24;
+  box-shadow:0 3px 0 #9E2E24, inset 0 1px 0 rgba(255,255,255,.6); color:#4A100B; }
+.btn.warn:active { box-shadow:0 0 0 #9E2E24, inset 0 1px 0 rgba(255,255,255,.6); }
+.btn.util { background:linear-gradient(#FBF3D2, #F2E3AC); border-color:#BCA84E;
+  box-shadow:0 3px 0 #BCA84E, inset 0 1px 0 rgba(255,255,255,.85); color:#5A4A12; }
+.btn.util:active { box-shadow:0 0 0 #BCA84E, inset 0 1px 0 rgba(255,255,255,.85); }
+/* 効果音を切っているときは色を落とす */
+.btn.util.quiet { background:linear-gradient(#E9E7DC, #CFCBB8); border-color:#938C6E;
+  box-shadow:0 3px 0 #938C6E, inset 0 1px 0 rgba(255,255,255,.6); color:#4E4930; }
+.btn.util.quiet:active { box-shadow:0 0 0 #938C6E, inset 0 1px 0 rgba(255,255,255,.6); }
+/* 押せないときの灰色は、どの色のボタンよりも優先させる（後に書く） */
 .btn.off { background:#CFCFCA; border-color:#9A9A94; box-shadow:0 3px 0 #9A9A94, inset 0 1px 0 rgba(255,255,255,.5);
   color:#6E6E68; cursor:default; }
-/* 効果音の切り替えだけ寒色にして、ゲーム操作と区別する */
-.btn.cool { background:linear-gradient(#AFD8F5, #74B0E0); border-color:#2E6FA3;
-  box-shadow:0 3px 0 #2E6FA3, inset 0 1px 0 rgba(255,255,255,.7); color:#123A57; }
-.btn.cool:active { box-shadow:0 0 0 #2E6FA3, inset 0 1px 0 rgba(255,255,255,.7); }
-.btn.cool.quiet { background:linear-gradient(#DCE6ED, #BCCCD9); border-color:#7E96A8;
-  box-shadow:0 3px 0 #7E96A8, inset 0 1px 0 rgba(255,255,255,.6); color:#42535F; }
-.btn.cool.quiet:active { box-shadow:0 0 0 #7E96A8, inset 0 1px 0 rgba(255,255,255,.6); }
 .btn.off:active { transform:none; }
 
 /* ---------- 状態表示：押せない。枠だけ ---------- */
@@ -182,8 +194,11 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
 
 /* ---------- オーバーレイ ---------- */
 .ov { position:fixed; inset:0; background:rgba(16,16,14,.82); display:none;
-  align-items:center; justify-content:center; padding:16px; z-index:50; }
+  align-items:center; justify-content:center; padding:16px; z-index:50;
+  overflow-y:auto; overscroll-behavior:contain; }
 .ov.on { display:flex; }
+/* 画面に収まらないときは上が切れずにスクロールできるようにする */
+.ov > * { margin:auto; }
 /* 重なりの優先順位：拡大表示 > ターン系・結果 > 一覧系 */
 #ovZoom { z-index:90; }
 #ovTitle, #ovFirst, #ovFirstOnline, #ovTurnYou, #ovTurnOpp, #ovTurnLast,
@@ -221,8 +236,8 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
   max-width:520px; max-height:86vh; overflow:auto; text-align:center; }
 .ovp.wide { max-width:660px; }
 .board-head { color:var(--ink); font-size:var(--fs); text-align:center; margin:0 0 11px; }
-.ov.full { background:linear-gradient(180deg,#E9F3FA 0%,#F3F9EA 42%,#DFEDCC 100%); padding:0; }
-.title-inner { width:100%; max-width:560px; padding:24px 22px; text-align:center; }
+.ov.full { background:linear-gradient(180deg,#E9F3FA 0%,#F3F9EA 42%,#DFEDCC 100%); padding:18px 0 26px; }
+.title-inner { width:100%; max-width:560px; padding:6px 22px; text-align:center; }
 .title-inner .logo { width:min(94%,520px); margin:0 auto; }
 .title-inner .ov-col { margin:0 auto; max-width:340px; }
 .title-inner .logo { margin-bottom:14px; }
@@ -240,6 +255,7 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
 .ov-big { font-size:clamp(22px,6vw,32px); font-weight:700; margin:6px 0; }
 .ov-sub { font-size:var(--fs-head); color:var(--ink-sub); margin:0 0 4px; }
 .ov-lead { font-size:var(--fs-head); font-weight:700; margin:0 0 6px; }
+.sub-line { font-size:var(--fs); font-weight:400; color:var(--ink-sub); }
 .ov-row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
 .ov-col { display:flex; flex-direction:column; gap:10px; align-items:center; margin-top:16px; }
 .tap-hint { font-size:var(--fs-s); color:var(--ink-sub); margin-top:14px; }
@@ -387,7 +403,7 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
       <div class="bmid-bottom">
         <span class="stat" id="deckLeft">山札残り<b>0</b>枚</span>
         <span class="mid-btns">
-          <button class="btn" id="discBtn">捨てられたカードを見る</button>
+          <button class="btn info" id="discBtn">捨てられたカードを見る</button>
           <button class="btn lg" id="endBtn">ターン終了</button>
         </span>
       </div>
@@ -410,10 +426,10 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
     <div class="hand-title" id="handTitle"></div>
     <div class="hand-wrap" id="handWrap"></div>
     <div class="hand-foot">
-      <button class="btn" id="logBtn">ゲームログ</button>
-      <button class="btn" id="ruleBtn">ルール確認</button>
-      <button class="btn" id="quitBtn">タイトルに戻る</button>
-      <button class="btn cool" id="sfxBtn">効果音：ON</button>
+      <button class="btn info" id="logBtn">ゲームログ</button>
+      <button class="btn info" id="ruleBtn">ルールの確認</button>
+      <button class="btn util" id="quitBtn">タイトルに戻る</button>
+      <button class="btn util" id="sfxBtn">効果音：ON</button>
     </div>
   </div>
 
@@ -423,7 +439,7 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
 <div class="ov full on" id="ovTitle">
   <div class="title-inner">
     <img class="logo" src="images/title_logo.png" alt="ビオトープカードゲーム デジタル体験版" onerror="this.classList.add('miss')">
-    <p class="ver">バージョン 0.6.2</p>
+    <p class="ver">バージョン 0.7.5</p>
 
     <p class="tagline">
       さまざまな環境を組み合わせ、そこに暮らす動物たちを見つけよう。<br>
@@ -433,9 +449,9 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
     <div class="ov-col">
       <button class="btn lg wide" id="cpuBtn">1人で遊ぶ（CPUと対戦）</button>
       <button class="btn lg wide" id="onlineBtn">2人で遊ぶ（オンライン対戦）</button>
-      <button class="btn lg wide" id="aboutBtn">このゲームについて</button>
-      <button class="btn lg wide" id="rulesBtn">ルールを確認する</button>
-      <button class="btn lg wide cool" id="sfxBtnTitle">効果音：ON</button>
+      <button class="btn lg wide info" id="aboutBtn">このゲームについて</button>
+      <button class="btn lg wide info" id="rulesBtn">ルールの確認</button>
+      <button class="btn lg wide util" id="sfxBtnTitle">効果音：ON</button>
     </div>
     <p class="credit">制作：特殊活動友の会（2026）<br>
       <span class="credit-note">※ ゲーム中の写真はすべて制作者による撮影</span></p>
@@ -449,13 +465,14 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
 
 <div class="ov" id="ovJoin">
   <div class="ovp">
-    <p class="ov-lead">対戦相手と同じ5桁の数字を入力してください</p>
+    <p class="ov-lead">対戦相手と同じ5桁の数字を入力してください<br>
+      <span class="sub-line">（数字は自由に決められます）</span></p>
     <input class="pw" id="pw" type="text" inputmode="numeric" maxlength="5"
            autocomplete="off" placeholder="00000">
     <p class="tap-hint" id="joinNote"></p>
     <div class="ov-row">
       <button class="btn lg off" id="joinBtn">対戦する</button>
-      <button class="btn lg" id="joinBack">タイトルに戻る</button>
+      <button class="btn lg util" id="joinBack">タイトルに戻る</button>
     </div>
   </div>
 </div>
@@ -465,7 +482,7 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
     <p class="ov-sub">設定した番号</p>
     <p class="ov-big" id="waitPw"></p>
     <p class="ov-lead">対戦相手を待っています</p>
-    <div class="ov-row"><button class="btn lg" id="waitCancel">やめる</button></div>
+    <div class="ov-row"><button class="btn lg neg" id="waitCancel">やめる</button></div>
   </div>
 </div>
 
@@ -476,7 +493,7 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
 <div class="ov" id="ovLost">
   <div class="ovp">
     <p class="ov-lead">相手との通信が切断されました</p>
-    <div class="ov-row"><button class="btn lg" id="lostBack">タイトルに戻る</button></div>
+    <div class="ov-row"><button class="btn lg util" id="lostBack">タイトルに戻る</button></div>
   </div>
 </div>
 
@@ -518,10 +535,10 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
     <p class="draw-label" id="drawLabel">あなたの手札</p>
     <div class="ov-row">
       <button class="btn lg" id="drawBtn">カードを引く</button>
-      <button class="btn lg off" id="drawStop">引かない</button>
+      <button class="btn lg neg off" id="drawStop">引かない</button>
     </div>
     <div class="ov-row" style="margin-top:9px">
-      <button class="btn lg" id="drawBoardBtn">ビオトープを見る</button>
+      <button class="btn lg info" id="drawBoardBtn">ビオトープ確認</button>
     </div>
   </div>
 </div>
@@ -532,11 +549,11 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
     <p class="ov-sub">手札が5枚あるときは1枚以上捨ててください。</p>
     <div class="tidy-grid" id="tidyGrid"></div>
     <div class="ov-row">
-      <button class="btn lg" id="tidyAll">すべて捨てる</button>
+      <button class="btn lg util" id="tidyAll">すべて捨てる</button>
       <button class="btn lg off" id="tidyOk">決定</button>
     </div>
     <div class="ov-row" style="margin-top:9px">
-      <button class="btn lg" id="tidyBoardBtn">ビオトープを見る</button>
+      <button class="btn lg info" id="tidyBoardBtn">ビオトープ確認</button>
     </div>
   </div>
 </div>
@@ -553,10 +570,10 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
 
 <div class="ov" id="ovQuit">
   <div class="ovp">
-    <p class="ov-lead">ゲームが中断されますがよろしいですか？</p>
+    <p class="ov-lead" id="quitMsg">ゲームを中断しますか？</p>
     <div class="ov-row">
-      <button class="btn lg" id="quitYes">はい</button>
-      <button class="btn lg" data-close>いいえ</button>
+      <button class="btn lg" data-close>ゲームを続ける</button>
+      <button class="btn lg warn" id="quitYes">中断する</button>
     </div>
   </div>
 </div>
@@ -569,12 +586,12 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
       <tbody id="resBody"></tbody>
     </table>
     <div class="ov-row">
-      <button class="btn lg" id="resBoard">ビオトープ確認</button>
-      <button class="btn lg" id="resLog">ゲームログ</button>
+      <button class="btn lg info" id="resBoard">ビオトープ確認</button>
+      <button class="btn lg info" id="resLog">ゲームログ</button>
     </div>
     <div class="ov-row" style="margin-top:22px; padding-top:20px; border-top:1px solid var(--line)">
       <button class="btn lg" id="resAgain">再戦する</button>
-      <button class="btn lg" id="resTitle">タイトルに戻る</button>
+      <button class="btn lg util" id="resTitle">タイトルに戻る</button>
     </div>
   </div>
 </div>
@@ -584,7 +601,7 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
     <p class="board-head" id="boardHead" hidden></p>
     <section class="zone me" id="boardMe" style="margin-bottom:10px"></section>
     <section class="zone op" id="boardOp"></section>
-    <div class="ov-row"><button class="btn lg" data-close>戻る</button></div>
+    <div class="ov-row"><button class="btn lg util" data-close>戻る</button></div>
   </div>
 </div>
 
@@ -592,7 +609,7 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
   <div class="ovp wide">
     <h3>捨てられたカード</h3>
     <div class="dgrid" id="discGrid"></div>
-    <div class="center"><button class="btn lg" data-close>戻る</button></div>
+    <div class="center"><button class="btn lg util" data-close>戻る</button></div>
   </div>
 </div>
 
@@ -601,8 +618,8 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
     <p class="ov-lead" style="text-align:center">ゲームログ</p>
     <div class="log" id="logBox"></div>
     <div class="ov-row">
-      <button class="btn lg" id="copyBtn" hidden>コピー（デバッグ用）</button>
-      <button class="btn lg" data-close>戻る</button>
+      <button class="btn lg warn" id="copyBtn" hidden>コピー（デバッグ用）</button>
+      <button class="btn lg util" data-close>戻る</button>
     </div>
   </div>
 </div>
@@ -793,7 +810,7 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
 <div class="rcard" data-card="en36" data-kind="zoom-only" data-etype="渓流"><img src="images/card/card_en36.png" alt="渓流" onerror="this.classList.add('miss')"></div><div class="rnone" id="rnoneE" hidden>なし</div></div>
     </div>
 
-    <div class="ov-row"><button class="btn lg" data-close>戻る</button></div>
+    <div class="ov-row"><button class="btn lg util" data-close>戻る</button></div>
   </div>
 </div>
 
@@ -820,12 +837,12 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
       <img class="photo" src="images/photo_analog.png" alt="アナログ版のカードとパッケージ" onerror="this.classList.add('miss')">
       <p class="caption">ビオトープカードゲーム 京都試作版</p>
     </div>
-    <div class="ov-row"><button class="btn lg" data-close>戻る</button></div>
+    <div class="ov-row"><button class="btn lg util" data-close>戻る</button></div>
   </div>
 </div>
 
 <script>
-const VERSION = '0.6.2';
+const VERSION = '0.7.5';
 const CARDS = {"schemaVersion": "0.1", "game": "ビオトープカードゲーム", "imageDir": "images", "rules": {"removeFromDeckAtStart": 8, "initialHand": 5, "handLimit": 5, "handLimitEndOfTurn": 4, "maxEnvironmentCards": 5, "actionsPerTurn": 2, "mustDrawAtLeast": 1, "actionTypes": ["playEnvironment", "discardEnvironment", "playAnimal"], "scoreCanBeNegative": true, "tiebreak": "animalCardCount", "revalidation": {"trigger": "盤面が変化するたび（行動1回ごと）", "mode": "simultaneous", "loop": "脱落がなくなるまで繰り返す", "selfExclusion": "環境レベル修整（an25/an44）は自身の必要レベル判定には適用しない", "note": "ヌートリア脱落によるレベル上昇では、既に捨てられた動物は戻らない"}}, "environmentTypes": ["森林", "草原", "湖沼", "河川", "湿地", "渓流"], "animalTags": ["哺乳類", "鳥類", "爬虫類", "両生類", "魚類", "昆虫類", "甲殻類", "絶滅危惧種", "特定外来生物"], "environments": [{"id": "en01", "no": 1, "image": "images/card/card_en01.png", "type": "森林", "level": 2}, {"id": "en02", "no": 2, "image": "images/card/card_en02.png", "type": "森林", "level": 2}, {"id": "en03", "no": 3, "image": "images/card/card_en03.png", "type": "森林", "level": 2}, {"id": "en04", "no": 4, "image": "images/card/card_en04.png", "type": "森林", "level": 2}, {"id": "en05", "no": 5, "image": "images/card/card_en05.png", "type": "森林", "level": 2}, {"id": "en06", "no": 6, "image": "images/card/card_en06.png", "type": "森林", "level": 2}, {"id": "en07", "no": 7, "image": "images/card/card_en07.png", "type": "森林", "level": 2}, {"id": "en08", "no": 8, "image": "images/card/card_en08.png", "type": "森林", "level": 2}, {"id": "en09", "no": 9, "image": "images/card/card_en09.png", "type": "草原", "level": 2}, {"id": "en10", "no": 10, "image": "images/card/card_en10.png", "type": "草原", "level": 2}, {"id": "en11", "no": 11, "image": "images/card/card_en11.png", "type": "草原", "level": 2}, {"id": "en12", "no": 12, "image": "images/card/card_en12.png", "type": "草原", "level": 2}, {"id": "en13", "no": 13, "image": "images/card/card_en13.png", "type": "草原", "level": 2}, {"id": "en14", "no": 14, "image": "images/card/card_en14.png", "type": "草原", "level": 2}, {"id": "en15", "no": 15, "image": "images/card/card_en15.png", "type": "湖沼", "level": 2}, {"id": "en16", "no": 16, "image": "images/card/card_en16.png", "type": "湖沼", "level": 2}, {"id": "en17", "no": 17, "image": "images/card/card_en17.png", "type": "湖沼", "level": 2}, {"id": "en18", "no": 18, "image": "images/card/card_en18.png", "type": "湖沼", "level": 2}, {"id": "en19", "no": 19, "image": "images/card/card_en19.png", "type": "湖沼", "level": 2}, {"id": "en20", "no": 20, "image": "images/card/card_en20.png", "type": "湖沼", "level": 2}, {"id": "en21", "no": 21, "image": "images/card/card_en21.png", "type": "河川", "level": 2}, {"id": "en22", "no": 22, "image": "images/card/card_en22.png", "type": "河川", "level": 2}, {"id": "en23", "no": 23, "image": "images/card/card_en23.png", "type": "河川", "level": 2}, {"id": "en24", "no": 24, "image": "images/card/card_en24.png", "type": "河川", "level": 2}, {"id": "en25", "no": 25, "image": "images/card/card_en25.png", "type": "河川", "level": 2}, {"id": "en26", "no": 26, "image": "images/card/card_en26.png", "type": "河川", "level": 2}, {"id": "en27", "no": 27, "image": "images/card/card_en27.png", "type": "湿地", "level": 3}, {"id": "en28", "no": 28, "image": "images/card/card_en28.png", "type": "湿地", "level": 3}, {"id": "en29", "no": 29, "image": "images/card/card_en29.png", "type": "湿地", "level": 3}, {"id": "en30", "no": 30, "image": "images/card/card_en30.png", "type": "湿地", "level": 3}, {"id": "en31", "no": 31, "image": "images/card/card_en31.png", "type": "湿地", "level": 3}, {"id": "en32", "no": 32, "image": "images/card/card_en32.png", "type": "渓流", "level": 1}, {"id": "en33", "no": 33, "image": "images/card/card_en33.png", "type": "渓流", "level": 1}, {"id": "en34", "no": 34, "image": "images/card/card_en34.png", "type": "渓流", "level": 1}, {"id": "en35", "no": 35, "image": "images/card/card_en35.png", "type": "渓流", "level": 1}, {"id": "en36", "no": 36, "image": "images/card/card_en36.png", "type": "渓流", "level": 1}], "animals": [{"id": "an01", "no": 1, "image": "images/card/card_an01.png", "name": "ニホンジカ", "subspecies": "ホンシュウジカ", "scientificName": "Cervus nippon", "taxon": "偶蹄目 シカ科", "redList": null, "habitats": ["森林"], "reqLevel": 2, "score": 1, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": "同じビオトープにいる、この動物以外の森林に生息する動物は、評価点－１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "sameBiotope", "exceptSelf": true, "habitat": "森林"}, "delta": -1}}, {"id": "an02", "no": 2, "image": "images/card/card_an02.png", "name": "イノシシ", "subspecies": "ニホンイノシシ", "scientificName": "Sus scrofa", "taxon": "偶蹄目 イノシシ科", "redList": null, "habitats": ["森林"], "reqLevel": 3, "score": 1, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an03", "no": 3, "image": "images/card/card_an03.png", "name": "ニホンテン", "subspecies": "ホンドテン", "scientificName": "Martes melampus", "taxon": "食肉目 イタチ科", "redList": null, "habitats": ["森林"], "reqLevel": 4, "score": 2, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an04", "no": 4, "image": "images/card/card_an04.png", "name": "カブトムシ", "subspecies": null, "scientificName": "Trypoxylus dichotomus", "taxon": "コウチュウ目 コガネムシ科", "redList": null, "habitats": ["森林"], "reqLevel": 4, "score": 2, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an05", "no": 5, "image": "images/card/card_an05.png", "name": "オオスズメバチ", "subspecies": null, "scientificName": "Vespa mandarinia", "taxon": "ハチ目 スズメバチ科", "redList": null, "habitats": ["森林"], "reqLevel": 5, "score": 2, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": "対戦相手のビオトープにこのカードを出したとき、対戦相手は手札をすべて捨てる。", "effect": {"kind": "trigger.onPlay", "when": "playedToOpponentBiotope", "action": "discardHand", "actor": "biotopeOwner", "optional": false}}, {"id": "an06", "no": 6, "image": "images/card/card_an06.png", "name": "ニホンリス", "subspecies": null, "scientificName": "Sciurus lis", "taxon": "齧歯目 リス科", "redList": null, "habitats": ["森林"], "reqLevel": 7, "score": 5, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an07", "no": 7, "image": "images/card/card_an07.png", "name": "ニホンヒキガエル", "subspecies": null, "scientificName": "Bufo japonicus", "taxon": "無尾目 ヒキガエル科", "redList": "準絶滅危惧種", "habitats": ["森林"], "reqLevel": 7, "score": 5, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": "ビオトープに湿地があるとき、この動物は評価点＋１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "self"}, "delta": 1, "condition": {"type": "biotopeHasEnv", "env": "湿地"}}}, {"id": "an08", "no": 8, "image": "images/card/card_an08.png", "name": "モリアオガエル", "subspecies": null, "scientificName": "Zhangixalus arboreus", "taxon": "無尾目 アオガエル科", "redList": "要注目種", "habitats": ["森林"], "reqLevel": 7, "score": 4, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": "湿地があるビオトープにこのカードを出したとき、手札にアカハライモリがあるなら、追加で同じビオトープに出してもよい。", "effect": {"kind": "trigger.onPlay", "action": "playFromHand", "cardId": "an26", "toBiotope": "same", "requireLegal": true, "optional": true, "condition": {"type": "biotopeHasEnv", "env": "湿地"}}}, {"id": "an09", "no": 9, "image": "images/card/card_an09.png", "name": "ムササビ", "subspecies": null, "scientificName": "Petaurista leucogenys", "taxon": "齧歯目 リス科", "redList": "準絶滅危惧種", "habitats": ["森林"], "reqLevel": 8, "score": 6, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an10", "no": 10, "image": "images/card/card_an10.png", "name": "ツキノワグマ", "subspecies": "ニホンツキノワグマ", "scientificName": "Ursus thibetanus", "taxon": "食肉目 クマ科", "redList": "要注目種", "habitats": ["森林"], "reqLevel": 8, "score": 6, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": "このカードを出したとき、捨てられたカードから１枚を選んで手札に加えてもよい。", "effect": {"kind": "trigger.onPlay", "action": "takeFromDiscard", "filter": {"any": true}, "count": 1, "optional": true}}, {"id": "an11", "no": 11, "image": "images/card/card_an11.png", "name": "ニホンカモシカ", "subspecies": null, "scientificName": "Capricornis crispus", "taxon": "偶蹄目 ウシ科", "redList": "絶滅寸前種", "habitats": ["森林"], "reqLevel": 10, "score": 8, "tags": ["哺乳類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": null, "effect": null}, {"id": "an12", "no": 12, "image": "images/card/card_an12.png", "name": "クマタカ", "subspecies": null, "scientificName": "Nisaetus nipalensis", "taxon": "タカ目 タカ科", "redList": "絶滅危惧種", "habitats": ["森林"], "reqLevel": 12, "score": 10, "tags": ["鳥類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": "自分のビオトープと相手のビオトープのどちらにも森林があるとき、この動物は評価点＋２。", "effect": {"kind": "static.scoreMod", "target": {"scope": "self"}, "delta": 2, "condition": {"type": "bothBiotopesHaveEnv", "env": "森林"}}}, {"id": "an13", "no": 13, "image": "images/card/card_an13.png", "name": "アライグマ", "subspecies": null, "scientificName": "Procyon lotor", "taxon": "食肉目 アライグマ科", "redList": null, "habitats": ["森林"], "reqLevel": 5, "score": -5, "tags": ["哺乳類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "この動物がいるビオトープには、森林に生息する【哺乳類】または【鳥類】を新しく出すことができない。", "effect": {"kind": "static.playRestriction", "scope": "sameBiotope", "forbid": {"habitat": "森林", "anyTag": ["哺乳類", "鳥類"]}, "appliesToExisting": false}}, {"id": "an14", "no": 14, "image": "images/card/card_an14.png", "name": "モンキチョウ", "subspecies": null, "scientificName": "Colias erate", "taxon": "チョウ目 シロチョウ科", "redList": null, "habitats": ["草原"], "reqLevel": 2, "score": 1, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an15", "no": 15, "image": "images/card/card_an15.png", "name": "ニホンノウサギ", "subspecies": "キュウシュウノウサギ", "scientificName": "Lepus brachyurus", "taxon": "兎形目 ウサギ科", "redList": null, "habitats": ["草原"], "reqLevel": 3, "score": 1, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an16", "no": 16, "image": "images/card/card_an16.png", "name": "ニホントカゲ", "subspecies": null, "scientificName": "Plestiodon japonicus", "taxon": "有鱗目 トカゲ科", "redList": null, "habitats": ["草原"], "reqLevel": 4, "score": 2, "tags": ["爬虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an17", "no": 17, "image": "images/card/card_an17.png", "name": "モズ", "subspecies": null, "scientificName": "Lanius bucephalus", "taxon": "スズメ目 モズ科", "redList": null, "habitats": ["草原"], "reqLevel": 6, "score": 3, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": "このカードを出したとき、手札に同じビオトープに出せる【昆虫類】があるなら、そのうち１枚を選んで追加で同じビオトープに出してもよい。", "effect": {"kind": "trigger.onPlay", "action": "playFromHand", "filter": {"anyTag": ["昆虫類"]}, "toBiotope": "same", "requireLegal": true, "optional": true}}, {"id": "an18", "no": 18, "image": "images/card/card_an18.png", "name": "ナミハンミョウ", "subspecies": null, "scientificName": "Sophiodela japonica", "taxon": "コウチュウ目 オサムシ科", "redList": null, "habitats": ["草原"], "reqLevel": 6, "score": 3, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": "このカードを出したとき、捨てられた環境カードから１枚選んで手札に加えてもよい。", "effect": {"kind": "trigger.onPlay", "action": "takeFromDiscard", "filter": {"cardType": "environment"}, "count": 1, "optional": true}}, {"id": "an19", "no": 19, "image": "images/card/card_an19.png", "name": "アカギツネ", "subspecies": "ホンドギツネ", "scientificName": "Vulpes vulpes", "taxon": "食肉目 イヌ科", "redList": "要注目種", "habitats": ["草原"], "reqLevel": 7, "score": 5, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": "同じビオトープにニホンノウサギがいるなら、この動物は評価点＋１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "self"}, "delta": 1, "condition": {"type": "animalInSameBiotope", "cardId": "an15"}}}, {"id": "an20", "no": 20, "image": "images/card/card_an20.png", "name": "オオバン", "subspecies": null, "scientificName": "Fulica atra", "taxon": "ツル目 クイナ科", "redList": null, "habitats": ["湖沼"], "reqLevel": 5, "score": 2, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": "同じビオトープに、この動物以外の湖沼に生息する動物がいないなら、この動物は評価点＋３。", "effect": {"kind": "static.scoreMod", "target": {"scope": "self"}, "delta": 3, "condition": {"type": "noOtherAnimalInSameBiotope", "habitat": "湖沼"}}}, {"id": "an21", "no": 21, "image": "images/card/card_an21.png", "name": "カイツブリ", "subspecies": null, "scientificName": "Tachybaptus ruficollis", "taxon": "カイツブリ目 カイツブリ科", "redList": "準絶滅危惧種", "habitats": ["湖沼"], "reqLevel": 6, "score": 4, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an22", "no": 22, "image": "images/card/card_an22.png", "name": "カネヒラ", "subspecies": null, "scientificName": "Acheilognathus rhombeus", "taxon": "コイ目 タナゴ科", "redList": "準絶滅危惧種", "habitats": ["湖沼"], "reqLevel": 8, "score": 6, "tags": ["魚類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an23", "no": 23, "image": "images/card/card_an23.png", "name": "オオクチバス", "subspecies": null, "scientificName": "Micropterus nigricans", "taxon": "サンフィッシュ目 サンフィッシュ科", "redList": null, "habitats": ["湖沼"], "reqLevel": 5, "score": -5, "tags": ["魚類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "同じビオトープにいる、この動物以外の湖沼に生息する動物は、評価点－１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "sameBiotope", "exceptSelf": true, "habitat": "湖沼"}, "delta": -1}}, {"id": "an24", "no": 24, "image": "images/card/card_an24.png", "name": "ニホンイシガメ", "subspecies": null, "scientificName": "Mauremys japonica", "taxon": "カメ目 イシガメ科", "redList": "要注目種", "habitats": ["河川"], "reqLevel": 8, "score": 6, "tags": ["爬虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an25", "no": 25, "image": "images/card/card_an25.png", "name": "ヌートリア", "subspecies": null, "scientificName": "Myocastor coypus", "taxon": "齧歯目 ヌートリア科", "redList": null, "habitats": ["河川"], "reqLevel": 5, "score": -5, "tags": ["哺乳類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "この動物がいるビオトープは、環境レベルが１下がる。この効果で下がった環境レベルは、このカードには影響しない。", "effect": {"kind": "static.envLevelMod", "scope": "sameBiotope", "delta": -1, "excludeSelf": true}}, {"id": "an26", "no": 26, "image": "images/card/card_an26.png", "name": "アカハライモリ", "subspecies": null, "scientificName": "Cynops pyrrhogaster", "taxon": "有尾目 イモリ科", "redList": "要注目種", "habitats": ["湿地"], "reqLevel": 7, "score": 6, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an27", "no": 27, "image": "images/card/card_an27.png", "name": "コウノトリ", "subspecies": null, "scientificName": "Ciconia boyciana", "taxon": "コウノトリ目 コウノトリ科", "redList": "絶滅危惧種", "habitats": ["湿地"], "reqLevel": 10, "score": 7, "tags": ["鳥類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": "同じビオトープにいる、この動物以外の【絶滅危惧種】は、評価点＋１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "sameBiotope", "exceptSelf": true, "anyTag": ["絶滅危惧種"]}, "delta": 1}}, {"id": "an28", "no": 28, "image": "images/card/card_an28.png", "name": "クロゲンゴロウ", "subspecies": null, "scientificName": "Cybister brevis", "taxon": "コウチュウ目 ゲンゴロウ科", "redList": "準絶滅危惧種", "habitats": ["湿地"], "reqLevel": 10, "score": 7, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": "同じビオトープにいる、この動物以外の湿地に生息する動物は、評価点＋１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "sameBiotope", "exceptSelf": true, "habitat": "湿地"}, "delta": 1}}, {"id": "an29", "no": 29, "image": "images/card/card_an29.png", "name": "カジカガエル", "subspecies": null, "scientificName": "Buergeria buergeri", "taxon": "無尾目 アオガエル科", "redList": "準絶滅危惧種", "habitats": ["渓流"], "reqLevel": 6, "score": 5, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an30", "no": 30, "image": "images/card/card_an30.png", "name": "ヤマセミ", "subspecies": null, "scientificName": "Megaceryle lugubris", "taxon": "ブッポウソウ目 カワセミ科", "redList": "絶滅危惧種", "habitats": ["渓流"], "reqLevel": 9, "score": 8, "tags": ["鳥類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": null, "effect": null}, {"id": "an31", "no": 31, "image": "images/card/card_an31.png", "name": "オオサンショウウオ", "subspecies": null, "scientificName": "Andrias japonicus", "taxon": "有尾目 オオサンショウウオ科", "redList": "絶滅危惧種", "habitats": ["渓流"], "reqLevel": 9, "score": 7, "tags": ["両生類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": "このカードを出したとき、渓流に生息する動物カードが捨てられているなら、そのうち１枚を選んで手札に加えてもよい。", "effect": {"kind": "trigger.onPlay", "action": "takeFromDiscard", "filter": {"cardType": "animal", "habitat": "渓流"}, "count": 1, "optional": true}}, {"id": "an32", "no": 32, "image": "images/card/card_an32.png", "name": "チュウゴクオオサンショウウオ", "subspecies": null, "scientificName": "Andrias davidianus", "taxon": "有尾目 オオサンショウウオ科", "redList": null, "habitats": ["渓流"], "reqLevel": 5, "score": -5, "tags": ["両生類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "同じビオトープにいるオオサンショウウオは、評価点－７。", "effect": {"kind": "static.scoreMod", "target": {"scope": "sameBiotope", "cardId": "an31"}, "delta": -7}}, {"id": "an33", "no": 33, "image": "images/card/card_an33.png", "name": "ヤマカガシ", "subspecies": null, "scientificName": "Rhabdophis tigrinus", "taxon": "有鱗目 ナミヘビ科", "redList": "要注目種", "habitats": ["森林", "湿地"], "reqLevel": 6, "score": 4, "tags": ["爬虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an34", "no": 34, "image": "images/card/card_an34.png", "name": "ニホンアカガエル", "subspecies": null, "scientificName": "Rana japonica", "taxon": "無尾目 アカガエル科", "redList": "要注目種", "habitats": ["森林", "湿地"], "reqLevel": 9, "score": 7, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": "ビオトープに森林と湿地がどちらもあるとき、このカードの必要環境レベルは５になる。", "effect": {"kind": "static.reqLevelOverride", "value": 5, "condition": {"type": "biotopeHasAllEnv", "envs": ["森林", "湿地"]}}}, {"id": "an35", "no": 35, "image": "images/card/card_an35.png", "name": "タゴガエル", "subspecies": null, "scientificName": "Rana tagoi", "taxon": "無尾目 アカガエル科", "redList": null, "habitats": ["森林", "渓流"], "reqLevel": 5, "score": 3, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an36", "no": 36, "image": "images/card/card_an36.png", "name": "ヒダサンショウウオ", "subspecies": null, "scientificName": "Hynobius kimurae", "taxon": "有尾目 サンショウウオ科", "redList": "絶滅危惧種", "habitats": ["森林", "渓流"], "reqLevel": 11, "score": 9, "tags": ["両生類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": null, "effect": null}, {"id": "an37", "no": 37, "image": "images/card/card_an37.png", "name": "カルガモ", "subspecies": null, "scientificName": "Anas zonorhyncha", "taxon": "カモ目 カモ科", "redList": null, "habitats": ["湖沼", "河川"], "reqLevel": 3, "score": 1, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an38", "no": 38, "image": "images/card/card_an38.png", "name": "ドジョウ", "subspecies": null, "scientificName": "Misgurnus anguillicaudatus", "taxon": "コイ目 ドジョウ科", "redList": "要注目種", "habitats": ["湖沼", "河川"], "reqLevel": 3, "score": 1, "tags": ["魚類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an39", "no": 39, "image": "images/card/card_an39.png", "name": "カワセミ", "subspecies": null, "scientificName": "Alcedo atthis", "taxon": "ブッポウソウ目 カワセミ科", "redList": null, "habitats": ["湖沼", "河川"], "reqLevel": 5, "score": 2, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an40", "no": 40, "image": "images/card/card_an40.png", "name": "ショウジョウトンボ", "subspecies": null, "scientificName": "Crocothemis servilia", "taxon": "トンボ目 トンボ科", "redList": null, "habitats": ["湖沼", "湿地"], "reqLevel": 5, "score": 3, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an41", "no": 41, "image": "images/card/card_an41.png", "name": "ウシガエル", "subspecies": null, "scientificName": "Lithobates catesbeianus", "taxon": "無尾目 アカガエル科", "redList": null, "habitats": ["湖沼", "湿地"], "reqLevel": 5, "score": -5, "tags": ["両生類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "このカードを出したとき、同じビオトープにこの動物以外の湿地に生息する【両生類】または【昆虫類】がいるなら、そのうち１枚を選んで捨てる。", "effect": {"kind": "trigger.onPlay", "action": "discardAnimal", "scope": "sameBiotope", "exceptSelf": true, "filter": {"habitat": "湿地", "anyTag": ["両生類", "昆虫類"]}, "count": 1, "optional": false, "chooser": "activePlayer"}}, {"id": "an42", "no": 42, "image": "images/card/card_an42.png", "name": "アメリカザリガニ", "subspecies": null, "scientificName": "Procambarus clarkii", "taxon": "十脚目 アメリカザリガニ科", "redList": null, "habitats": ["湖沼", "湿地"], "reqLevel": 5, "score": -5, "tags": ["甲殻類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "このカードを出したとき、手札にウシガエルがあるなら、追加で同じビオトープに出してもよい。", "effect": {"kind": "trigger.onPlay", "action": "playFromHand", "cardId": "an41", "toBiotope": "same", "requireLegal": true, "optional": true}}, {"id": "an43", "no": 43, "image": "images/card/card_an43.png", "name": "アオサギ", "subspecies": null, "scientificName": "Ardea cinerea", "taxon": "ペリカン目 サギ科", "redList": null, "habitats": ["河川", "湿地"], "reqLevel": 2, "score": 1, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": "このカードを出したとき、対戦相手の手札を見てもよい。", "effect": {"kind": "trigger.onPlay", "action": "revealOpponentHand", "optional": true}}, {"id": "an44", "no": 44, "image": "images/card/card_an44.png", "name": "サワガニ", "subspecies": null, "scientificName": "Geothelphusa dehaani", "taxon": "十脚目 サワガニ科", "redList": null, "habitats": ["河川", "渓流"], "reqLevel": 4, "score": 1, "tags": ["甲殻類"], "invasive": false, "endangered": false, "effectText": "この動物がいるビオトープは、環境レベルが１上がる。この効果で上がった環境レベルは、このカードには影響しない。", "effect": {"kind": "static.envLevelMod", "scope": "sameBiotope", "delta": 1, "excludeSelf": true}}], "imageExt": ".png", "cardImageDir": "images/card", "cardBack": "images/card/card_ura.png", "titleLogo": "images/title_logo.png", "cardSize": {"w": 500, "h": 750}};
 /* ============================================================
    ゲームエンジン（純粋部分）
@@ -1353,6 +1370,8 @@ function cloneState(s) {
 
 /* ---------- 小道具 ---------- */
 const isInv = id => !isEnv(id) && A[id].invasive;
+let EARLY_LV = 5;      // 上級者が「序盤」とみなす環境レベル。
+                       // 実測では 5 が最も強く、7 や 9 では捨てすぎて効果がなくなる
 const SHIKA = 'an01', HORNET = 'an05', RACCOON = 'an13';
 
 function envKinds(s, p) { return envTypes(s, p).size; }
@@ -1643,6 +1662,12 @@ function cpuTidy(s, rand) {
   const lead = totalScore(s, p) - totalScore(s, 1 - p);
   const rush = envFull && ((lv === 2 && lead >= 15) || (lv === 3 && lead >= 10 && turnsLeft(s) > 2));
   if (rush) return hand.slice();
+
+  // 上級者の序盤：環境が整うまでは、今出せない動物を抱えず手札を回して環境札を探す
+  if (lv === 3 && EARLY_LV > 0 && !envFull && envLevel(s, p, null) < EARLY_LV) {
+    const rest2 = hand.filter(c => !out.includes(c));
+    out.push(...rest2.filter(c => !isEnv(c) && !canPlace(s, p, c) && !canPlace(s, 1 - p, c)));
+  }
 
   const left = hand.filter(c => !out.includes(c));
   const animals = left.filter(c => !isEnv(c));
@@ -2096,10 +2121,13 @@ const envColor = t => COL[t];
 const aniColor = a => a.habitats.length === 1 ? COL[a.habitats[0]]
   : `linear-gradient(90deg,${COL[a.habitats[0]]} 0 50%,${COL[a.habitats[1]]} 50% 100%)`;
 
+/* 環境の空き枠は、あと何枚置けるかの数だけ出す */
+const emptySlots = n => '<div class="tile env empty">空き</div>'.repeat(Math.max(0, 5 - n));
+
 function render(chg) {
   // 相手のビオトープ
   $('opEnv').innerHTML = S.env[OP].map(id => envTile(id, OP, 'field-env-op')).join('')
-    + (S.env[OP].length < 5 ? '<div class="tile env empty">空き</div>' : '');
+    + emptySlots(S.env[OP].length);
   $('opAni').innerHTML = S.animals[OP].map(id => aniTile(id, OP)).join('')
     + '<div class="tile ani empty"></div>';
   $('opLv').innerHTML = lvHTML(OP);
@@ -2109,7 +2137,7 @@ function render(chg) {
 
   // あなたのビオトープ
   $('meEnv').innerHTML = S.env[ME].map(id => envTile(id, ME, 'field-env')).join('')
-    + (S.env[ME].length < 5 ? '<div class="tile env empty">空き</div>' : '');
+    + emptySlots(S.env[ME].length);
   $('meAni').innerHTML = S.animals[ME].map(id => aniTile(id, ME)).join('')
     + '<div class="tile ani empty"></div>';
   $('meLv').innerHTML = lvHTML(ME);
@@ -2235,6 +2263,12 @@ function drawDiscard() {
 }
 let boardShowHand = false;      // ゲーム中に開いたときは手札枚数も出す
 const openBoardInGame = () => { boardShowHand = true; openOv('ovBoard'); };
+/* 中断（CPU戦）と降参（オンライン）で、問いかけとボタンを切り替える */
+function openQuit() {
+  $('quitMsg').textContent = ONLINE ? '降参しますか？' : 'ゲームを中断しますか？';
+  $('quitYes').textContent = ONLINE ? '降参する' : '中断する';
+  openOv('ovQuit');
+}
 function syncSfxLabel() {
   ['sfxBtn', 'sfxBtnTitle'].forEach(i => {
     const b = $(i); if (!b) return;
@@ -2242,9 +2276,16 @@ function syncSfxLabel() {
     b.classList.toggle('quiet', !SFX_ON);      // 切っているときは色を落とす
   });
 }
+/* ボタンの文字から色の種類を決める（進める＝既定、否定＝青、確認＝緑、その他＝黄） */
+const BTN_TONE = {
+  '相手のビオトープに出す': 'neg', 'ビオトープから捨てる': 'neg', '効果を実行しない': 'neg',
+  'ビオトープ確認': 'info', '戻る': 'util',
+};
+const tone = label => BTN_TONE[label] ? ' ' + BTN_TONE[label] : '';
+
 function boardBtn() {
   const b = document.createElement('button');
-  b.className = 'btn lg'; b.textContent = 'ビオトープを見る';
+  b.className = 'btn lg info'; b.textContent = 'ビオトープ確認';
   b.onclick = openBoardInGame;
   return b;
 }
@@ -2272,9 +2313,11 @@ function drawBoard() {
 function openZoom(id, kind) {
   $('ovImg').src = `${CARDS.cardImageDir}/card_${id}.png`;
   const box = $('ovBtns'); box.innerHTML = '';
-  // 他のオーバーレイが開いているとき、または効果の解決待ちのあいだは、
+  // 他の画面が開いている／効果の解決待ち／自分の番でない、のいずれかなら
   // 拡大表示から操作させない（「戻る」だけにする）
-  const busyOv = !!document.querySelector('.ov.on:not(#ovZoom)') || !!(S && S.pending);
+  const busyOv = !!document.querySelector('.ov.on:not(#ovZoom)')
+    || !!(S && S.pending)
+    || !!(S && S.cur !== ME);
   const mine = canAct() && !busyOv;
   let list;
   if (busyOv) list = [['戻る', true, '', null]];
@@ -2298,7 +2341,7 @@ function openZoom(id, kind) {
   list.forEach(([label, ok, why, act]) => {
     const w = document.createElement('div'); w.className = 'btn-wrap';
     const b = document.createElement('button');
-    b.className = 'btn lg' + (ok ? '' : ' off');
+    b.className = 'btn lg' + (ok ? tone(label) : ' off');
     b.textContent = label;
     if (ok) b.addEventListener('click', () => { $('ovZoom').classList.remove('on'); if (act) act(); });
     w.appendChild(b);
@@ -2345,14 +2388,14 @@ function askFx() {
     body.innerHTML = `<div class="pick-grid${pd.act === 'takeFromDiscard' ? ' left' : ''}">${pd.options.map(c => `
       <div class="pick-item" data-opt="${c}">${cardBox(c)}
         <div class="pick-state">${off}</div>
-        <button class="btn pick-btn">変更</button></div>`).join('')}</div>`;
+        <button class="btn util pick-btn">変更</button></div>`).join('')}</div>`;
 
   return new Promise(done => {
     const finish = v => { $('ovFx').classList.remove('on'); done(v); };
     btns.innerHTML = ''; $('fxBtns2').innerHTML = '';
     const add = (label, cls, fn) => {
       const b = document.createElement('button');
-      b.className = 'btn lg' + (cls ? ' ' + cls : '');
+      b.className = 'btn lg' + (cls ? ' ' + cls : tone(label));
       b.textContent = label;
       b.onclick = () => { if (!b.classList.contains('off')) fn(); };
       btns.appendChild(b);
@@ -2417,7 +2460,7 @@ function tidyPhaseUI() {
       <div class="tidy-item ${sel.has(id) ? 'sel' : ''}">
         <div class="mini-card" data-card="${id}" data-kind="zoom-only">${cardImg(id)}</div>
         <div class="tidy-state">${sel.has(id) ? '捨てる' : '捨てない'}</div>
-        <button class="btn tidy-btn" data-tidy="${id}">変更</button>
+        <button class="btn util tidy-btn" data-tidy="${id}">変更</button>
       </div>`).join('');
     $('tidyOk').classList.toggle('off', S.hands[ME].length - sel.size > 4);
   };
@@ -2561,7 +2604,7 @@ function showResult() {
 
 /* ゲーム開始前に、空の盤面を背景として出しておく */
 function blankBoard() {
-  $('opEnv').innerHTML = $('meEnv').innerHTML = '<div class="tile env empty">空き</div>';
+  $('opEnv').innerHTML = $('meEnv').innerHTML = emptySlots(0);
   $('opAni').innerHTML = $('meAni').innerHTML = '<div class="tile ani empty"></div>';
   ['opLv', 'opSc', 'meLv', 'meSc'].forEach(i => $(i).textContent = '0');
   $('opHand').textContent = '0';
@@ -2658,8 +2701,11 @@ document.addEventListener('click', e => {
     case 'logBtn':
     case 'resLog':   openOv('ovLog'); return;
     case 'discBtn':  openOv('ovDisc'); return;
-    case 'quitBtn':  openOv('ovQuit'); return;
-    case 'quitYes':  location.reload(); return;
+    case 'quitBtn':  openQuit(); return;
+    case 'quitYes':
+      if (ONLINE) { send({ type: 'resign' }); closeAllOv(); showResult(); }
+      else location.reload();
+      return;
     case 'sfxBtn':
     case 'sfxBtnTitle': SFX_ON = !SFX_ON; syncSfxLabel(); if (SFX_ON) playSfx('draw'); return;
     case 'resBoard': boardShowHand = false; openOv('ovBoard'); return;
