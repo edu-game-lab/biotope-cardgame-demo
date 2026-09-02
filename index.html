@@ -203,6 +203,8 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
 #ovZoom { z-index:90; }
 #ovTitle, #ovFirst, #ovFirstOnline, #ovTurnYou, #ovTurnOpp, #ovTurnLast,
 #ovDraw, #ovTidy, #ovResult, #ovLevel, #ovQuit, #ovResign, #ovFx { z-index:70; }
+#ovRank { z-index:80; }
+#ovRkBoard, #ovNoSave { z-index:86; }
 #ovDisc, #ovLog, #ovRule, #ovAbout, #ovBoard { z-index:85; }
 #ovJoin, #ovWait, #ovFirstOnline, #ovLost { z-index:75; }
 .pw { display:block; width:min(100%,260px); margin:16px auto 4px; padding:10px 0;
@@ -289,6 +291,29 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
 .pick-btn { padding:4px 12px; }
 
 .res-table { width:100%; border-collapse:collapse; margin:14px 0 4px; font-size:var(--fs); }
+/* --- スコアチャレンジとランキング --- */
+.sc-box { margin-top:20px; padding-top:16px; border-top:1px solid var(--line); }
+.sc-title { font-size:var(--fs-head); font-weight:700; margin:0 0 4px; }
+.sc-lead { font-size:var(--fs-s); color:var(--ink-sub); margin:0 0 12px; }
+.sc-line { font-size:var(--fs-head); font-weight:700; margin:2px 0 8px; font-variant-numeric:tabular-nums; }
+.sc-msg { font-size:var(--fs); margin:2px 0 4px; line-height:1.8; }
+.rk-list { margin:14px 0 4px; }
+.rk-row { display:flex; align-items:center; justify-content:center; gap:6px; padding:7px 4px;
+  border-bottom:1px solid var(--line); font-size:var(--fs); }
+.rk-row:first-child { border-top:1px solid var(--line); }
+.rk-no { flex:0 0 3.2em; text-align:left; font-weight:700; font-size:var(--fs-head); }
+.rk-sc { flex:0 0 5.2em; text-align:center; font-weight:700; font-variant-numeric:tabular-nums; }
+.rk-nm { flex:0 0 7.4em; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rk-fs { flex:0 0 3em; text-align:center; color:var(--ink-sub); font-size:var(--fs-s); }
+.rk-btn { padding:3px 9px; font-size:var(--fs-s); }
+.rk-row.empty { color:#BFBFB8; }
+.rk-row.empty .rk-fs { color:#CFCFC8; }
+.rk-date { text-align:center; font-size:var(--fs-s); color:var(--ink-sub); margin:12px 0 0; }
+.pw.name { letter-spacing:.12em; text-indent:.12em; font-size:clamp(24px,6.5vw,32px);
+  width:min(100%,230px); margin-bottom:4px; }
+.nm-note { font-size:var(--fs-s); color:var(--ink-sub); margin:0 0 10px; }
+.nm-err { font-size:var(--fs-s); color:var(--n-down); font-weight:700; margin:0 0 10px; }
+@media (max-width:560px) { .rk-row { gap:5px; font-size:var(--fs-s); } .rk-no { flex-basis:2.8em; } }
 .res-table th, .res-table td { padding:7px 6px; border-bottom:1px solid var(--line); }
 .res-table th { color:var(--ink-sub); font-weight:400; text-align:left; }
 .res-table td { text-align:center; font-weight:700; font-size:1.15em; }
@@ -359,7 +384,8 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
 </style>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-  import { getDatabase, ref, set, push, remove, onValue, onChildAdded, onDisconnect, runTransaction }
+  import { getDatabase, ref, set, push, get, remove, query, orderByChild, limitToLast,
+           onValue, onChildAdded, onDisconnect, runTransaction }
     from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
   const app = initializeApp({
     apiKey: "AIzaSyBt3Js5_eEL9SQAwW64IbUD_g7LAQMAXoE",
@@ -370,7 +396,8 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
     messagingSenderId: "463511459583",
     appId: "1:463511459583:web:89dab8e040256e0e8c9eca"
   });
-  window.FB = { app, getDatabase, ref, set, push, remove, onValue, onChildAdded, onDisconnect, runTransaction };
+  window.FB = { app, getDatabase, ref, set, push, get, remove, query, orderByChild, limitToLast,
+                 onValue, onChildAdded, onDisconnect, runTransaction };
 </script>
 </head>
 <body>
@@ -439,7 +466,7 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
 <div class="ov full on" id="ovTitle">
   <div class="title-inner">
     <img class="logo" src="images/title_logo.png" alt="ビオトープカードゲーム デジタル体験版" onerror="this.classList.add('miss')">
-    <p class="ver">バージョン 0.8.2</p>
+    <p class="ver">バージョン 0.9.2</p>
 
     <p class="tagline">
       さまざまな環境を組み合わせ、そこに暮らす動物たちを見つけよう。<br>
@@ -505,6 +532,44 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
       <button class="btn lg wide" data-cpulv="1">初心者</button>
       <button class="btn lg wide" data-cpulv="2">中級者</button>
       <button class="btn lg wide" data-cpulv="3">上級者</button>
+    </div>
+    <div class="sc-box">
+      <p class="sc-title">スコアチャレンジ</p>
+      <p class="sc-lead">上級者CPUと対戦し、より豊かなビオトープをつくって勝利しましょう。</p>
+      <div class="ov-row">
+        <button class="btn lg" id="scStart">挑戦する</button>
+        <button class="btn lg info" id="scRank">ランキングを見る</button>
+      </div>
+    </div>
+    <div class="ov-row" style="margin-top:18px; padding-top:16px; border-top:1px solid var(--line)">
+      <button class="btn lg util" id="lvBack">戻る</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ovRank">
+  <div class="ovp wide">
+    <p class="ov-lead">ハイスコア ランキング</p>
+    <div class="rk-list" id="rkList"></div>
+    <p class="tap-hint" id="rkNote"></p>
+    <div class="ov-row"><button class="btn lg util" id="rkBack">戻る</button></div>
+  </div>
+</div>
+
+<div class="ov" id="ovRkBoard">
+  <div class="ovp wide" style="text-align:left">
+    <section class="zone me" id="rkBoardZone"></section>
+    <p class="rk-date" id="rkDate"></p>
+    <div class="ov-row"><button class="btn lg util" data-close>戻る</button></div>
+  </div>
+</div>
+
+<div class="ov" id="ovNoSave">
+  <div class="ovp">
+    <p class="ov-lead">記録しなくてよろしいですか？</p>
+    <div class="ov-row">
+      <button class="btn lg neg" id="noSaveYes">記録しない</button>
+      <button class="btn lg util" data-close>戻る</button>
     </div>
   </div>
 </div>
@@ -582,6 +647,17 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
 <div class="ov" id="ovResult">
   <div class="ovp">
     <p class="ov-big" id="resHead"></p>
+    <p class="sc-line" id="resScore" hidden></p>
+    <div id="resSave" hidden>
+      <p class="sc-msg">ランキング入り、おめでとうございます！<br>記録する名前を入力してください。</p>
+      <input class="pw name" id="nm" type="text" maxlength="4" autocomplete="off" placeholder="ここに入力">
+      <p class="nm-note">（ひらがな・カタカナ・英数字で4文字まで）</p>
+      <p class="nm-err" id="nmErr" hidden></p>
+      <div class="ov-row">
+        <button class="btn lg off" id="saveBtn">記録する</button>
+        <button class="btn lg neg" id="noSaveBtn">記録しない</button>
+      </div>
+    </div>
     <table class="res-table">
       <thead><tr id="resCols"></tr></thead>
       <tbody id="resBody"></tbody>
@@ -844,7 +920,7 @@ button { font:inherit; color:inherit; border:none; background:none; padding:0; c
 </div>
 
 <script>
-const VERSION = '0.8.2';
+const VERSION = '0.9.2';
 const CARDS = {"schemaVersion": "0.1", "game": "ビオトープカードゲーム", "imageDir": "images", "rules": {"removeFromDeckAtStart": 8, "initialHand": 5, "handLimit": 5, "handLimitEndOfTurn": 4, "maxEnvironmentCards": 5, "actionsPerTurn": 2, "mustDrawAtLeast": 1, "actionTypes": ["playEnvironment", "discardEnvironment", "playAnimal"], "scoreCanBeNegative": true, "tiebreak": "animalCardCount", "revalidation": {"trigger": "盤面が変化するたび（行動1回ごと）", "mode": "simultaneous", "loop": "脱落がなくなるまで繰り返す", "selfExclusion": "環境レベル修整（an25/an44）は自身の必要レベル判定には適用しない", "note": "ヌートリア脱落によるレベル上昇では、既に捨てられた動物は戻らない"}}, "environmentTypes": ["森林", "草原", "湖沼", "河川", "湿地", "渓流"], "animalTags": ["哺乳類", "鳥類", "爬虫類", "両生類", "魚類", "昆虫類", "甲殻類", "絶滅危惧種", "特定外来生物"], "environments": [{"id": "en01", "no": 1, "image": "images/card/card_en01.png", "type": "森林", "level": 2}, {"id": "en02", "no": 2, "image": "images/card/card_en02.png", "type": "森林", "level": 2}, {"id": "en03", "no": 3, "image": "images/card/card_en03.png", "type": "森林", "level": 2}, {"id": "en04", "no": 4, "image": "images/card/card_en04.png", "type": "森林", "level": 2}, {"id": "en05", "no": 5, "image": "images/card/card_en05.png", "type": "森林", "level": 2}, {"id": "en06", "no": 6, "image": "images/card/card_en06.png", "type": "森林", "level": 2}, {"id": "en07", "no": 7, "image": "images/card/card_en07.png", "type": "森林", "level": 2}, {"id": "en08", "no": 8, "image": "images/card/card_en08.png", "type": "森林", "level": 2}, {"id": "en09", "no": 9, "image": "images/card/card_en09.png", "type": "草原", "level": 2}, {"id": "en10", "no": 10, "image": "images/card/card_en10.png", "type": "草原", "level": 2}, {"id": "en11", "no": 11, "image": "images/card/card_en11.png", "type": "草原", "level": 2}, {"id": "en12", "no": 12, "image": "images/card/card_en12.png", "type": "草原", "level": 2}, {"id": "en13", "no": 13, "image": "images/card/card_en13.png", "type": "草原", "level": 2}, {"id": "en14", "no": 14, "image": "images/card/card_en14.png", "type": "草原", "level": 2}, {"id": "en15", "no": 15, "image": "images/card/card_en15.png", "type": "湖沼", "level": 2}, {"id": "en16", "no": 16, "image": "images/card/card_en16.png", "type": "湖沼", "level": 2}, {"id": "en17", "no": 17, "image": "images/card/card_en17.png", "type": "湖沼", "level": 2}, {"id": "en18", "no": 18, "image": "images/card/card_en18.png", "type": "湖沼", "level": 2}, {"id": "en19", "no": 19, "image": "images/card/card_en19.png", "type": "湖沼", "level": 2}, {"id": "en20", "no": 20, "image": "images/card/card_en20.png", "type": "湖沼", "level": 2}, {"id": "en21", "no": 21, "image": "images/card/card_en21.png", "type": "河川", "level": 2}, {"id": "en22", "no": 22, "image": "images/card/card_en22.png", "type": "河川", "level": 2}, {"id": "en23", "no": 23, "image": "images/card/card_en23.png", "type": "河川", "level": 2}, {"id": "en24", "no": 24, "image": "images/card/card_en24.png", "type": "河川", "level": 2}, {"id": "en25", "no": 25, "image": "images/card/card_en25.png", "type": "河川", "level": 2}, {"id": "en26", "no": 26, "image": "images/card/card_en26.png", "type": "河川", "level": 2}, {"id": "en27", "no": 27, "image": "images/card/card_en27.png", "type": "湿地", "level": 3}, {"id": "en28", "no": 28, "image": "images/card/card_en28.png", "type": "湿地", "level": 3}, {"id": "en29", "no": 29, "image": "images/card/card_en29.png", "type": "湿地", "level": 3}, {"id": "en30", "no": 30, "image": "images/card/card_en30.png", "type": "湿地", "level": 3}, {"id": "en31", "no": 31, "image": "images/card/card_en31.png", "type": "湿地", "level": 3}, {"id": "en32", "no": 32, "image": "images/card/card_en32.png", "type": "渓流", "level": 1}, {"id": "en33", "no": 33, "image": "images/card/card_en33.png", "type": "渓流", "level": 1}, {"id": "en34", "no": 34, "image": "images/card/card_en34.png", "type": "渓流", "level": 1}, {"id": "en35", "no": 35, "image": "images/card/card_en35.png", "type": "渓流", "level": 1}, {"id": "en36", "no": 36, "image": "images/card/card_en36.png", "type": "渓流", "level": 1}], "animals": [{"id": "an01", "no": 1, "image": "images/card/card_an01.png", "name": "ニホンジカ", "subspecies": "ホンシュウジカ", "scientificName": "Cervus nippon", "taxon": "偶蹄目 シカ科", "redList": null, "habitats": ["森林"], "reqLevel": 2, "score": 1, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": "同じビオトープにいる、この動物以外の森林に生息する動物は、評価点－１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "sameBiotope", "exceptSelf": true, "habitat": "森林"}, "delta": -1}}, {"id": "an02", "no": 2, "image": "images/card/card_an02.png", "name": "イノシシ", "subspecies": "ニホンイノシシ", "scientificName": "Sus scrofa", "taxon": "偶蹄目 イノシシ科", "redList": null, "habitats": ["森林"], "reqLevel": 3, "score": 1, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an03", "no": 3, "image": "images/card/card_an03.png", "name": "ニホンテン", "subspecies": "ホンドテン", "scientificName": "Martes melampus", "taxon": "食肉目 イタチ科", "redList": null, "habitats": ["森林"], "reqLevel": 4, "score": 2, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an04", "no": 4, "image": "images/card/card_an04.png", "name": "カブトムシ", "subspecies": null, "scientificName": "Trypoxylus dichotomus", "taxon": "コウチュウ目 コガネムシ科", "redList": null, "habitats": ["森林"], "reqLevel": 4, "score": 2, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an05", "no": 5, "image": "images/card/card_an05.png", "name": "オオスズメバチ", "subspecies": null, "scientificName": "Vespa mandarinia", "taxon": "ハチ目 スズメバチ科", "redList": null, "habitats": ["森林"], "reqLevel": 5, "score": 2, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": "対戦相手のビオトープにこのカードを出したとき、対戦相手は手札をすべて捨てる。", "effect": {"kind": "trigger.onPlay", "when": "playedToOpponentBiotope", "action": "discardHand", "actor": "biotopeOwner", "optional": false}}, {"id": "an06", "no": 6, "image": "images/card/card_an06.png", "name": "ニホンリス", "subspecies": null, "scientificName": "Sciurus lis", "taxon": "齧歯目 リス科", "redList": null, "habitats": ["森林"], "reqLevel": 7, "score": 5, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an07", "no": 7, "image": "images/card/card_an07.png", "name": "ニホンヒキガエル", "subspecies": null, "scientificName": "Bufo japonicus", "taxon": "無尾目 ヒキガエル科", "redList": "準絶滅危惧種", "habitats": ["森林"], "reqLevel": 7, "score": 5, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": "ビオトープに湿地があるとき、この動物は評価点＋１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "self"}, "delta": 1, "condition": {"type": "biotopeHasEnv", "env": "湿地"}}}, {"id": "an08", "no": 8, "image": "images/card/card_an08.png", "name": "モリアオガエル", "subspecies": null, "scientificName": "Zhangixalus arboreus", "taxon": "無尾目 アオガエル科", "redList": "要注目種", "habitats": ["森林"], "reqLevel": 7, "score": 4, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": "湿地があるビオトープにこのカードを出したとき、手札にアカハライモリがあるなら、追加で同じビオトープに出してもよい。", "effect": {"kind": "trigger.onPlay", "action": "playFromHand", "cardId": "an26", "toBiotope": "same", "requireLegal": true, "optional": true, "condition": {"type": "biotopeHasEnv", "env": "湿地"}}}, {"id": "an09", "no": 9, "image": "images/card/card_an09.png", "name": "ムササビ", "subspecies": null, "scientificName": "Petaurista leucogenys", "taxon": "齧歯目 リス科", "redList": "準絶滅危惧種", "habitats": ["森林"], "reqLevel": 8, "score": 6, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an10", "no": 10, "image": "images/card/card_an10.png", "name": "ツキノワグマ", "subspecies": "ニホンツキノワグマ", "scientificName": "Ursus thibetanus", "taxon": "食肉目 クマ科", "redList": "要注目種", "habitats": ["森林"], "reqLevel": 8, "score": 6, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": "このカードを出したとき、捨てられたカードから１枚を選んで手札に加えてもよい。", "effect": {"kind": "trigger.onPlay", "action": "takeFromDiscard", "filter": {"any": true}, "count": 1, "optional": true}}, {"id": "an11", "no": 11, "image": "images/card/card_an11.png", "name": "ニホンカモシカ", "subspecies": null, "scientificName": "Capricornis crispus", "taxon": "偶蹄目 ウシ科", "redList": "絶滅寸前種", "habitats": ["森林"], "reqLevel": 10, "score": 8, "tags": ["哺乳類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": null, "effect": null}, {"id": "an12", "no": 12, "image": "images/card/card_an12.png", "name": "クマタカ", "subspecies": null, "scientificName": "Nisaetus nipalensis", "taxon": "タカ目 タカ科", "redList": "絶滅危惧種", "habitats": ["森林"], "reqLevel": 12, "score": 10, "tags": ["鳥類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": "自分のビオトープと相手のビオトープのどちらにも森林があるとき、この動物は評価点＋２。", "effect": {"kind": "static.scoreMod", "target": {"scope": "self"}, "delta": 2, "condition": {"type": "bothBiotopesHaveEnv", "env": "森林"}}}, {"id": "an13", "no": 13, "image": "images/card/card_an13.png", "name": "アライグマ", "subspecies": null, "scientificName": "Procyon lotor", "taxon": "食肉目 アライグマ科", "redList": null, "habitats": ["森林"], "reqLevel": 5, "score": -5, "tags": ["哺乳類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "この動物がいるビオトープには、森林に生息する【哺乳類】または【鳥類】を新しく出すことができない。", "effect": {"kind": "static.playRestriction", "scope": "sameBiotope", "forbid": {"habitat": "森林", "anyTag": ["哺乳類", "鳥類"]}, "appliesToExisting": false}}, {"id": "an14", "no": 14, "image": "images/card/card_an14.png", "name": "モンキチョウ", "subspecies": null, "scientificName": "Colias erate", "taxon": "チョウ目 シロチョウ科", "redList": null, "habitats": ["草原"], "reqLevel": 2, "score": 1, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an15", "no": 15, "image": "images/card/card_an15.png", "name": "ニホンノウサギ", "subspecies": "キュウシュウノウサギ", "scientificName": "Lepus brachyurus", "taxon": "兎形目 ウサギ科", "redList": null, "habitats": ["草原"], "reqLevel": 3, "score": 1, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an16", "no": 16, "image": "images/card/card_an16.png", "name": "ニホントカゲ", "subspecies": null, "scientificName": "Plestiodon japonicus", "taxon": "有鱗目 トカゲ科", "redList": null, "habitats": ["草原"], "reqLevel": 4, "score": 2, "tags": ["爬虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an17", "no": 17, "image": "images/card/card_an17.png", "name": "モズ", "subspecies": null, "scientificName": "Lanius bucephalus", "taxon": "スズメ目 モズ科", "redList": null, "habitats": ["草原"], "reqLevel": 6, "score": 3, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": "このカードを出したとき、手札に同じビオトープに出せる【昆虫類】があるなら、そのうち１枚を選んで追加で同じビオトープに出してもよい。", "effect": {"kind": "trigger.onPlay", "action": "playFromHand", "filter": {"anyTag": ["昆虫類"]}, "toBiotope": "same", "requireLegal": true, "optional": true}}, {"id": "an18", "no": 18, "image": "images/card/card_an18.png", "name": "ナミハンミョウ", "subspecies": null, "scientificName": "Sophiodela japonica", "taxon": "コウチュウ目 オサムシ科", "redList": null, "habitats": ["草原"], "reqLevel": 6, "score": 3, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": "このカードを出したとき、捨てられた環境カードから１枚選んで手札に加えてもよい。", "effect": {"kind": "trigger.onPlay", "action": "takeFromDiscard", "filter": {"cardType": "environment"}, "count": 1, "optional": true}}, {"id": "an19", "no": 19, "image": "images/card/card_an19.png", "name": "アカギツネ", "subspecies": "ホンドギツネ", "scientificName": "Vulpes vulpes", "taxon": "食肉目 イヌ科", "redList": "要注目種", "habitats": ["草原"], "reqLevel": 7, "score": 5, "tags": ["哺乳類"], "invasive": false, "endangered": false, "effectText": "同じビオトープにニホンノウサギがいるなら、この動物は評価点＋１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "self"}, "delta": 1, "condition": {"type": "animalInSameBiotope", "cardId": "an15"}}}, {"id": "an20", "no": 20, "image": "images/card/card_an20.png", "name": "オオバン", "subspecies": null, "scientificName": "Fulica atra", "taxon": "ツル目 クイナ科", "redList": null, "habitats": ["湖沼"], "reqLevel": 5, "score": 2, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": "同じビオトープに、この動物以外の湖沼に生息する動物がいないなら、この動物は評価点＋３。", "effect": {"kind": "static.scoreMod", "target": {"scope": "self"}, "delta": 3, "condition": {"type": "noOtherAnimalInSameBiotope", "habitat": "湖沼"}}}, {"id": "an21", "no": 21, "image": "images/card/card_an21.png", "name": "カイツブリ", "subspecies": null, "scientificName": "Tachybaptus ruficollis", "taxon": "カイツブリ目 カイツブリ科", "redList": "準絶滅危惧種", "habitats": ["湖沼", "河川"], "reqLevel": 6, "score": 4, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an22", "no": 22, "image": "images/card/card_an22.png", "name": "カネヒラ", "subspecies": null, "scientificName": "Acheilognathus rhombeus", "taxon": "コイ目 タナゴ科", "redList": "準絶滅危惧種", "habitats": ["湖沼", "河川"], "reqLevel": 8, "score": 6, "tags": ["魚類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an23", "no": 23, "image": "images/card/card_an23.png", "name": "オオクチバス", "subspecies": null, "scientificName": "Micropterus nigricans", "taxon": "サンフィッシュ目 サンフィッシュ科", "redList": null, "habitats": ["湖沼"], "reqLevel": 5, "score": -5, "tags": ["魚類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "同じビオトープにいる、この動物以外の湖沼に生息する動物は、評価点－１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "sameBiotope", "exceptSelf": true, "habitat": "湖沼"}, "delta": -1}}, {"id": "an24", "no": 24, "image": "images/card/card_an24.png", "name": "ニホンイシガメ", "subspecies": null, "scientificName": "Mauremys japonica", "taxon": "カメ目 イシガメ科", "redList": "要注目種", "habitats": ["河川"], "reqLevel": 8, "score": 6, "tags": ["爬虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an25", "no": 25, "image": "images/card/card_an25.png", "name": "ヌートリア", "subspecies": null, "scientificName": "Myocastor coypus", "taxon": "齧歯目 ヌートリア科", "redList": null, "habitats": ["河川"], "reqLevel": 5, "score": -5, "tags": ["哺乳類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "この動物がいるビオトープは、環境レベルが１下がる。この効果で下がった環境レベルは、このカードには影響しない。", "effect": {"kind": "static.envLevelMod", "scope": "sameBiotope", "delta": -1, "excludeSelf": true}}, {"id": "an26", "no": 26, "image": "images/card/card_an26.png", "name": "アカハライモリ", "subspecies": null, "scientificName": "Cynops pyrrhogaster", "taxon": "有尾目 イモリ科", "redList": "要注目種", "habitats": ["湿地"], "reqLevel": 7, "score": 6, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an27", "no": 27, "image": "images/card/card_an27.png", "name": "コウノトリ", "subspecies": null, "scientificName": "Ciconia boyciana", "taxon": "コウノトリ目 コウノトリ科", "redList": "絶滅危惧種", "habitats": ["湿地"], "reqLevel": 10, "score": 7, "tags": ["鳥類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": "同じビオトープにいる、この動物以外の【絶滅危惧種】は、評価点＋１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "sameBiotope", "exceptSelf": true, "anyTag": ["絶滅危惧種"]}, "delta": 1}}, {"id": "an28", "no": 28, "image": "images/card/card_an28.png", "name": "クロゲンゴロウ", "subspecies": null, "scientificName": "Cybister brevis", "taxon": "コウチュウ目 ゲンゴロウ科", "redList": "準絶滅危惧種", "habitats": ["湿地"], "reqLevel": 10, "score": 7, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": "同じビオトープにいる、この動物以外の湿地に生息する動物は、評価点＋１。", "effect": {"kind": "static.scoreMod", "target": {"scope": "sameBiotope", "exceptSelf": true, "habitat": "湿地"}, "delta": 1}}, {"id": "an29", "no": 29, "image": "images/card/card_an29.png", "name": "カジカガエル", "subspecies": null, "scientificName": "Buergeria buergeri", "taxon": "無尾目 アオガエル科", "redList": "準絶滅危惧種", "habitats": ["渓流"], "reqLevel": 6, "score": 5, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an30", "no": 30, "image": "images/card/card_an30.png", "name": "ヤマセミ", "subspecies": null, "scientificName": "Megaceryle lugubris", "taxon": "ブッポウソウ目 カワセミ科", "redList": "絶滅危惧種", "habitats": ["渓流"], "reqLevel": 9, "score": 8, "tags": ["鳥類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": null, "effect": null}, {"id": "an31", "no": 31, "image": "images/card/card_an31.png", "name": "オオサンショウウオ", "subspecies": null, "scientificName": "Andrias japonicus", "taxon": "有尾目 オオサンショウウオ科", "redList": "絶滅危惧種", "habitats": ["渓流"], "reqLevel": 9, "score": 7, "tags": ["両生類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": "このカードを出したとき、渓流に生息する動物カードが捨てられているなら、そのうち１枚を選んで手札に加えてもよい。", "effect": {"kind": "trigger.onPlay", "action": "takeFromDiscard", "filter": {"cardType": "animal", "habitat": "渓流"}, "count": 1, "optional": true}}, {"id": "an32", "no": 32, "image": "images/card/card_an32.png", "name": "チュウゴクオオサンショウウオ", "subspecies": null, "scientificName": "Andrias davidianus", "taxon": "有尾目 オオサンショウウオ科", "redList": null, "habitats": ["渓流"], "reqLevel": 5, "score": -5, "tags": ["両生類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "同じビオトープにいるオオサンショウウオは、評価点－７。", "effect": {"kind": "static.scoreMod", "target": {"scope": "sameBiotope", "cardId": "an31"}, "delta": -7}}, {"id": "an33", "no": 33, "image": "images/card/card_an33.png", "name": "ヤマカガシ", "subspecies": null, "scientificName": "Rhabdophis tigrinus", "taxon": "有鱗目 ナミヘビ科", "redList": "要注目種", "habitats": ["森林", "湿地"], "reqLevel": 6, "score": 4, "tags": ["爬虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an34", "no": 34, "image": "images/card/card_an34.png", "name": "ニホンアカガエル", "subspecies": null, "scientificName": "Rana japonica", "taxon": "無尾目 アカガエル科", "redList": "要注目種", "habitats": ["森林", "湿地"], "reqLevel": 9, "score": 7, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": "ビオトープに森林と湿地がどちらもあるとき、このカードの必要環境レベルは５になる。", "effect": {"kind": "static.reqLevelOverride", "value": 5, "condition": {"type": "biotopeHasAllEnv", "envs": ["森林", "湿地"]}}}, {"id": "an35", "no": 35, "image": "images/card/card_an35.png", "name": "タゴガエル", "subspecies": null, "scientificName": "Rana tagoi", "taxon": "無尾目 アカガエル科", "redList": null, "habitats": ["森林", "渓流"], "reqLevel": 5, "score": 3, "tags": ["両生類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an36", "no": 36, "image": "images/card/card_an36.png", "name": "ヒダサンショウウオ", "subspecies": null, "scientificName": "Hynobius kimurae", "taxon": "有尾目 サンショウウオ科", "redList": "絶滅危惧種", "habitats": ["森林", "渓流"], "reqLevel": 11, "score": 9, "tags": ["両生類", "絶滅危惧種"], "invasive": false, "endangered": true, "effectText": null, "effect": null}, {"id": "an37", "no": 37, "image": "images/card/card_an37.png", "name": "カルガモ", "subspecies": null, "scientificName": "Anas zonorhyncha", "taxon": "カモ目 カモ科", "redList": null, "habitats": ["湖沼", "河川"], "reqLevel": 3, "score": 1, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an38", "no": 38, "image": "images/card/card_an38.png", "name": "ドジョウ", "subspecies": null, "scientificName": "Misgurnus anguillicaudatus", "taxon": "コイ目 ドジョウ科", "redList": "要注目種", "habitats": ["湖沼", "河川"], "reqLevel": 3, "score": 1, "tags": ["魚類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an39", "no": 39, "image": "images/card/card_an39.png", "name": "カワセミ", "subspecies": null, "scientificName": "Alcedo atthis", "taxon": "ブッポウソウ目 カワセミ科", "redList": null, "habitats": ["湖沼", "河川"], "reqLevel": 5, "score": 2, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an40", "no": 40, "image": "images/card/card_an40.png", "name": "ショウジョウトンボ", "subspecies": null, "scientificName": "Crocothemis servilia", "taxon": "トンボ目 トンボ科", "redList": null, "habitats": ["湖沼", "湿地"], "reqLevel": 5, "score": 3, "tags": ["昆虫類"], "invasive": false, "endangered": false, "effectText": null, "effect": null}, {"id": "an41", "no": 41, "image": "images/card/card_an41.png", "name": "ウシガエル", "subspecies": null, "scientificName": "Lithobates catesbeianus", "taxon": "無尾目 アカガエル科", "redList": null, "habitats": ["湖沼", "湿地"], "reqLevel": 5, "score": -5, "tags": ["両生類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "このカードを出したとき、同じビオトープにこの動物以外の湿地に生息する【両生類】または【昆虫類】がいるなら、そのうち１枚を選んで捨てる。", "effect": {"kind": "trigger.onPlay", "action": "discardAnimal", "scope": "sameBiotope", "exceptSelf": true, "filter": {"habitat": "湿地", "anyTag": ["両生類", "昆虫類"]}, "count": 1, "optional": false, "chooser": "activePlayer"}}, {"id": "an42", "no": 42, "image": "images/card/card_an42.png", "name": "アメリカザリガニ", "subspecies": null, "scientificName": "Procambarus clarkii", "taxon": "十脚目 アメリカザリガニ科", "redList": null, "habitats": ["湖沼", "湿地"], "reqLevel": 5, "score": -5, "tags": ["甲殻類", "特定外来生物"], "invasive": true, "endangered": false, "effectText": "このカードを出したとき、手札にウシガエルがあるなら、追加で同じビオトープに出してもよい。", "effect": {"kind": "trigger.onPlay", "action": "playFromHand", "cardId": "an41", "toBiotope": "same", "requireLegal": true, "optional": true}}, {"id": "an43", "no": 43, "image": "images/card/card_an43.png", "name": "アオサギ", "subspecies": null, "scientificName": "Ardea cinerea", "taxon": "ペリカン目 サギ科", "redList": null, "habitats": ["河川", "湿地"], "reqLevel": 2, "score": 1, "tags": ["鳥類"], "invasive": false, "endangered": false, "effectText": "このカードを出したとき、対戦相手の手札を見てもよい。", "effect": {"kind": "trigger.onPlay", "action": "revealOpponentHand", "optional": true}}, {"id": "an44", "no": 44, "image": "images/card/card_an44.png", "name": "サワガニ", "subspecies": null, "scientificName": "Geothelphusa dehaani", "taxon": "十脚目 サワガニ科", "redList": null, "habitats": ["河川", "渓流"], "reqLevel": 4, "score": 1, "tags": ["甲殻類"], "invasive": false, "endangered": false, "effectText": "この動物がいるビオトープは、環境レベルが１上がる。この効果で上がった環境レベルは、このカードには影響しない。", "effect": {"kind": "static.envLevelMod", "scope": "sameBiotope", "delta": 1, "excludeSelf": true}}], "imageExt": ".png", "cardImageDir": "images/card", "cardBack": "images/card/card_ura.png", "titleLogo": "images/title_logo.png", "cardSize": {"w": 500, "h": 750}};
 /* ============================================================
    ゲームエンジン（純粋部分）
@@ -2025,6 +2101,104 @@ function netLeave(removeRoom) {
 }
 
 /* ============================================================
+   スコアチャレンジとハイスコアランキング
+   ・記録は「勝って、ランクインして、記録する」を選んだときの1件だけ
+   ・Firebase には追加のみ。消すのも直すのも管理画面から行う
+   ============================================================ */
+
+const RANK_MAX = 10;                 // 表示する人数の上限
+const RANK_FETCH = 30;               // 同点を含めて余裕をもって取ってくる件数
+
+/* 使える文字：ひらがな・全角カタカナ・長音・全角英数字。
+   半角で入力されたものは全角に直してから記録する。 */
+const NAME_BAD = /[^ぁ-んァ-ヴー０-９Ａ-Ｚａ-ｚ]/g;
+const NAME_LEN = 4;
+const NAME_NG = [];                  // 使えない名前。必要になったらここに足す
+function toWide(v) {
+  // まず半角カタカナなどを全角にそろえ、そのあと英数字を全角にする
+  return (v || '').normalize('NFKC')
+    .replace(/[0-9A-Za-z]/g, c => String.fromCharCode(c.charCodeAt(0) + 0xFEE0));
+}
+function cleanName(v) { return toWide(v).replace(NAME_BAD, '').slice(0, NAME_LEN); }
+function nameError(v) {
+  if (!v) return '';
+  return NAME_NG.some(w => v.includes(w)) ? 'この名前は使えません' : '';
+}
+
+/* スコア＝評価点×10000＋動物数×100＋環境タイプ数×10＋環境レベル×2＋絶滅危惧種数－特定外来生物数 */
+function calcScore(s, p) {
+  const r = s.result;
+  return r.score[p] * 10000
+    + r.animals[p] * 100
+    + r.envTypes[p] * 10
+    + envLevel(s, p, null) * 2
+    + r.endangered[p]
+    - r.invasive[p];
+}
+
+/* 記録に残す1件分。盤面はカード番号の並びだけを持つ */
+function makeEntry(s, p, name) {
+  return {
+    name: toWide(name), score: calcScore(s, p), first: s.first === p ? 0 : 1, at: Date.now(),
+    ev: s.result.score[p], ani: s.result.animals[p], kinds: s.result.envTypes[p],
+    lv: envLevel(s, p, null), end: s.result.endangered[p], inv: s.result.invasive[p],
+    env: s.env[p].join(','), an: s.animals[p].join(','),
+  };
+}
+
+/* 同点は同じ順位。先に記録した人が上。
+   表示が上限を超える場合は、はみ出す順位ごと出さない。 */
+function rankList(rows) {
+  const sorted = rows.slice().sort((a, b) => b.score - a.score || a.at - b.at);
+  const out = [];
+  let rank = 0, prev = null, seen = 0;
+  for (const r of sorted) {
+    seen++;
+    if (r.score !== prev) { rank = seen; prev = r.score; }
+    out.push(Object.assign({ rank }, r));
+  }
+  // 上限を超える順位は丸ごと落とす
+  const keep = [];
+  for (let i = 0; i < out.length; i++) {
+    const same = out.filter(x => x.rank === out[i].rank).length;
+    if (keep.length + same > RANK_MAX) break;
+    if (!keep.some(x => x.rank === out[i].rank)) keep.push(...out.filter(x => x.rank === out[i].rank));
+  }
+  return keep;
+}
+
+/* そのスコアが何位になるか。ランクインしなければ 0 を返す */
+function rankOf(rows, score) {
+  const better = rows.filter(r => r.score > score).length;
+  const rank = better + 1;
+  if (rank > RANK_MAX) return 0;
+  // 自分を加えたときに、その順位が上限からはみ出すなら圏外
+  const same = rows.filter(r => r.score === score).length;
+  return (rank + same) > RANK_MAX ? 0 : rank;
+}
+
+/* ---------- Firebase ---------- */
+async function scoreLoad() {
+  if (!await netReady()) return null;
+  const F = window.FB;
+  NET.db = NET.db || F.getDatabase(F.app);
+  try {
+    const q = F.query(F.ref(NET.db, 'scores'), F.orderByChild('score'), F.limitToLast(RANK_FETCH));
+    const snap = await F.get(q);
+    const rows = [];
+    snap.forEach(c => { rows.push(c.val()); });
+    return rows;
+  } catch (e) { return null; }
+}
+async function scoreSave(entry) {
+  if (!await netReady()) return false;
+  const F = window.FB;
+  NET.db = NET.db || F.getDatabase(F.app);
+  try { await F.push(F.ref(NET.db, 'scores'), entry); return true; }
+  catch (e) { return false; }
+}
+
+/* ============================================================
    画面側
    ・状態を描くだけ。ここから状態を書き換えない
    ・操作は applyCommand を通してのみ状態に届く
@@ -2032,7 +2206,10 @@ function netLeave(removeRoom) {
 
 const DEBUG = new URLSearchParams(location.search).has('debug');
 const CPU_NAME = { 1: '初心者', 2: '中級者', 3: '上級者' };
-let ONLINE = false;          // オンライン対戦のときは true（Phase 6 で使う）
+let ONLINE = false;          // オンライン対戦のときは true
+let CHALLENGE = false;       // スコアチャレンジのときは true
+let RANK_FROM = 'ovLevel';   // ランキングを開く前の画面
+let MY_SCORE = 0, MY_RANK = 0, RANK_ROWS = [];
 const DBG = [];
 function dbg(msg) { DBG.push(`[警告] ${msg}`); if (DEBUG) console.warn(msg); }
 
@@ -2145,7 +2322,8 @@ function render(chg) {
   $('opLv').innerHTML = lvHTML(OP);
   $('opSc').innerHTML = num(totalScore(S, OP), '');
   $('opHand').textContent = S.hands[OP].length;
-  $('opCpu').textContent = ONLINE ? '' : `（CPU：${CPU_NAME[S.cpuLevel || 1]}）`;
+  $('opCpu').textContent = ONLINE ? ''
+    : CHALLENGE ? '（スコアチャレンジ）' : `（CPU：${CPU_NAME[S.cpuLevel || 1]}）`;
 
   // あなたのビオトープ
   $('meEnv').innerHTML = S.env[ME].map(id => envTile(id, ME, 'field-env')).join('')
@@ -2168,9 +2346,10 @@ function render(chg) {
   const mine = canAct();
   $('endBtn').classList.toggle('off', !mine);
   const q = $('quitBtn');                       // 中断（CPU戦）／降参（オンライン）
-  q.textContent = ONLINE ? '降参する' : 'タイトルに戻る';
-  q.classList.toggle('warn', ONLINE);
-  q.classList.toggle('util', !ONLINE);
+  const danger = ONLINE || CHALLENGE;
+  q.textContent = ONLINE ? '降参する' : CHALLENGE ? '諦める' : 'タイトルに戻る';
+  q.classList.toggle('warn', danger);
+  q.classList.toggle('util', !danger);
   q.classList.toggle('off', !(S.cur === ME && !S.over));   // 相手の番は押せない
 
   // 手札
@@ -2283,7 +2462,8 @@ let boardShowHand = false;      // ゲーム中に開いたときは手札枚数
 const openBoardInGame = () => { boardShowHand = true; openOv('ovBoard'); };
 /* 中断（CPU戦）と降参（オンライン）で、問いかけとボタンを切り替える */
 function openQuit() {
-  $('quitMsg').textContent = ONLINE ? '降参しますか？' : 'ゲームを中断しますか？';
+  $('quitMsg').textContent = ONLINE ? '降参しますか？'
+    : CHALLENGE ? 'チャレンジを中断しますか？' : 'ゲームを中断しますか？';
   $('quitYes').textContent = ONLINE ? '降参する' : '中断する';
   openOv('ovQuit');
 }
@@ -2657,7 +2837,11 @@ function showResult() {
      <td${k === '評価点の合計' && r.win === OP ? ' class="res-win"' : ''}>${v[OP]}</td></tr>`).join('');
   playSfx('end');
   if (ONLINE) { netLeave(NET.seat === 0); ONLINE = false; }   // 通信を残さない
+  $('resScore').hidden = true; $('resSave').hidden = true;
+  $('resAgain').hidden = false; $('resTitle').hidden = false;
+  $('resAgain').textContent = CHALLENGE ? 'もう一度チャレンジ' : '再戦する';
   openOv('ovResult');
+  if (CHALLENGE && r.win === ME && r.resigned === undefined) judgeScore();
 }
 
 /* ゲーム開始前に、空の盤面を背景として出しておく */
@@ -2729,9 +2913,91 @@ async function flashFirst(mineFirst) {
   ov.classList.remove('on');
 }
 
+/* ---------- ハイスコアランキング ---------- */
+const FIRST_LABEL = ['先攻', '後攻'];
+async function showRanking(from) {
+  RANK_FROM = from || 'ovLevel';
+  $('rkList').innerHTML = '';
+  $('rkNote').textContent = '読み込んでいます…';
+  openOv('ovRank');
+  const rows = await scoreLoad();
+  if (!rows) { $('rkNote').textContent = 'ランキングを読み込めませんでした'; return; }
+  RANK_ROWS = rows;
+  const list = rankList(rows);
+  $('rkNote').textContent = list.length ? '' : 'まだ記録がありません';
+  // 記録のある行のあとに、10行に届くまで空き枠を並べる
+  const filled = list.map((r, i) => `
+    <div class="rk-row">
+      <span class="rk-no">${r.rank}位</span>
+      <span class="rk-sc">${r.score}</span>
+      <span class="rk-nm">${esc(r.name)}</span>
+      <span class="rk-fs">${FIRST_LABEL[r.first] || ''}</span>
+      <button class="btn info rk-btn" data-rk="${i}">ビオトープ確認</button>
+    </div>`).join('');
+  const blank = `
+    <div class="rk-row empty">
+      <span class="rk-no">-位</span>
+      <span class="rk-sc">000000</span>
+      <span class="rk-nm">ーーーー</span>
+      <span class="rk-fs">先攻</span>
+      <button class="btn info rk-btn off">ビオトープ確認</button>
+    </div>`;
+  $('rkList').innerHTML = filled + blank.repeat(Math.max(0, RANK_MAX - list.length));
+  $('rkList').dataset.rows = JSON.stringify(list);
+}
+const esc = s => String(s).replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+
+/* 記録された盤面を見る（環境が上、動物が下） */
+function showRankBoard(i) {
+  const r = JSON.parse($('rkList').dataset.rows)[i];
+  const envs = (r.env || '').split(',').filter(Boolean);
+  const anis = (r.an || '').split(',').filter(Boolean);
+  const tile = (id, sq) => `<button class="tile ${sq ? 'ani' : 'env'}" data-card="${id}" data-kind="zoom-only"
+      style="background:${sq ? aniColor(A[id]) : envColor(E[id].type)}">
+      <span class="crop ${sq ? 'crop-sq' : 'crop-wide'}">${cardImg(id)}</span>
+      ${sq ? `<span class="bdg bdg-lv">${A[id].reqLevel}</span>` : ''}
+      <span class="lbl">${sq ? '評価点 ' + A[id].score : E[id].type + '（＋' + E[id].level + '）'}</span></button>`;
+  $('rkBoardZone').innerHTML = `
+    <div class="zone-head" style="margin-bottom:18px">
+      <span class="zone-name">${esc(r.name)}のビオトープ</span>
+      <span class="stat">環境レベル<b>${r.lv}</b></span>
+      <span class="stat">評価点の合計<b>${r.ev}</b></span>
+    </div>
+    <div class="row" style="margin-bottom:16px">${envs.map(id => tile(id, false)).join('')}</div>
+    <div class="row">${anis.map(id => tile(id, true)).join('')}</div>`;
+  const d = new Date(r.at);
+  $('rkDate').textContent = `達成日：${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+  openOv('ovRkBoard');
+}
+
+/* 勝ったときのスコア判定と記録 */
+async function judgeScore() {
+  MY_SCORE = calcScore(S, ME);
+  const rows = await scoreLoad();
+  RANK_ROWS = rows || [];
+  MY_RANK = rows ? rankOf(rows, MY_SCORE) : 0;
+  $('resScore').hidden = false;
+  $('resScore').textContent = `スコア${MY_SCORE}（${MY_RANK ? `現在${MY_RANK}位` : 'ランキング圏外'}）`;
+  if (!MY_RANK) return;
+  $('resSave').hidden = false;
+  $('resAgain').hidden = true; $('resTitle').hidden = true;
+  $('nm').value = ''; $('nmErr').hidden = true;
+  $('saveBtn').classList.add('off');
+}
+async function saveScore() {
+  const name = cleanName($('nm').value.trim());
+  if (!name || nameError(name)) return;
+  $('saveBtn').classList.add('off');
+  const ok = await scoreSave(makeEntry(S, ME, name));
+  if (!ok) { $('nmErr').hidden = false; $('nmErr').textContent = '記録できませんでした'; return; }
+  closeAllOv();
+  showRanking('ovTitle');
+}
+
 /* ---------- 開始 ---------- */
 function startGame(first) {
   ONLINE = false; ME = 0; OP = 1;
+  if (CHALLENGE) window.cpuLevel = 3;
   const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
   S = newGame(seed, first, window.cpuLevel || 1);
   CPU = rng(seed ^ 0x9e3779b9);
@@ -2747,6 +3013,8 @@ function startGame(first) {
 
 /* ---------- 入力の受け口 ---------- */
 document.addEventListener('click', e => {
+  const rk = e.target.closest('[data-rk]');
+  if (rk) { showRankBoard(+rk.dataset.rk); return; }
   const zoom = e.target.closest('[data-card]');
   if (zoom && !e.target.closest('[data-tidy]')) { openZoom(zoom.dataset.card, zoom.dataset.kind); return; }
   const b = e.target.closest('button');
@@ -2754,7 +3022,7 @@ document.addEventListener('click', e => {
 
   if (b.hasAttribute('data-close')) { closeOv(b.closest('.ov')); return; }
   switch (b.id) {
-    case 'cpuBtn':   closeOv(document.getElementById('ovTitle')); blankBoard(); openOv('ovLevel'); return;
+    case 'cpuBtn':   CHALLENGE = false; closeOv(document.getElementById('ovTitle')); blankBoard(); openOv('ovLevel'); return;
     case 'onlineBtn': closeOv(document.getElementById('ovTitle')); blankBoard();
                       openOv('ovJoin'); document.getElementById('pw').focus(); return;
     case 'joinBtn':   if (!b.classList.contains('off')) onlineJoin(document.getElementById('pw').value); return;
@@ -2777,7 +3045,19 @@ document.addEventListener('click', e => {
     case 'resBoard': boardShowHand = false; openOv('ovBoard'); return;
     case 'drawBoardBtn':
     case 'tidyBoardBtn': boardShowHand = true; openOv('ovBoard'); return;
-    case 'resAgain': netLeave(false); closeAllOv(); openOv('ovLevel'); return;
+    case 'resAgain':
+      netLeave(false); closeAllOv();
+      if (CHALLENGE) openOv('ovFirst'); else openOv('ovLevel');
+      return;
+    case 'scStart':   CHALLENGE = true; window.cpuLevel = 3;
+                      closeOv(document.getElementById('ovLevel')); openOv('ovFirst'); return;
+    case 'scRank':    showRanking('ovLevel'); return;
+    case 'lvBack':    location.reload(); return;
+    case 'rkBack':    closeOv(document.getElementById('ovRank'));
+                      openOv(RANK_FROM || 'ovLevel'); return;
+    case 'saveBtn':   if (!b.classList.contains('off')) saveScore(); return;
+    case 'noSaveBtn': openOv('ovNoSave'); return;
+    case 'noSaveYes': location.reload(); return;
     case 'resTitle': location.reload(); return;
     case 'endBtn':   if (canAct() && !b.classList.contains('off')) { closeAllOv(); endMyTurn(); } return;
     case 'copyBtn':  copyDebug(b); return;
@@ -2845,6 +3125,18 @@ document.querySelectorAll('#rfiltersEnv .fchip').forEach(b => b.addEventListener
 }));
 ruleSync(); envSync(); syncSfxLabel();
 /* 5桁の数字がそろったときだけ「対戦する」を押せるようにする */
+let nmComposing = false;              // 日本語入力の変換中は書き換えない
+const nmEl = document.getElementById('nm');
+nmEl.addEventListener('compositionstart', () => { nmComposing = true; });
+nmEl.addEventListener('compositionend', () => { nmComposing = false; nmSync(); });
+nmEl.addEventListener('input', () => { if (!nmComposing) nmSync(); });
+function nmSync() {
+  nmEl.value = cleanName(nmEl.value);
+  const v = nmEl.value.trim(), err = nameError(v);
+  const box = document.getElementById('nmErr');
+  box.hidden = !err; box.textContent = err || '';
+  document.getElementById('saveBtn').classList.toggle('off', !v || !!err);
+}
 document.getElementById('pw').addEventListener('input', e => {
   e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);
   document.getElementById('joinBtn').classList.toggle('off', e.target.value.length !== 5);
